@@ -47,7 +47,7 @@ counts.saveAsTextFile("/home/.../anyDirectory")
 ```
 
  * 双核运行`spark-shell`的命令
-```sh
+```Bash
 ./bin/spark-shell --master mesos://127.0.0.1:5050
 				  --total-executor-cores 2
 				  --supervise
