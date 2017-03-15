@@ -2,7 +2,7 @@
 
 ## Mesos组成结构
 
-![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/architecture.jpg)
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 2/architecture.jpg)
 
 上图表明了Mesos的主要组成部分。Mesos有master进程，其管理运行在云端每个结点上的slave进程，同时有一个分布式框架在这些slave结点上运行任务。
 
