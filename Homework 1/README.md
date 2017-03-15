@@ -11,9 +11,9 @@
 容器为每个应用程序提供隔离和独立的运行空间，每个容器内包含一个完整的用户空间，每个容器内的变动不会影响其他容器的运行环境。容器之间共享一个系统内核，直接共享内存和CPU等资源。
 
 ### 对比
- * 容器启动速度非常快；虚拟机通常需要几分钟去启动。
+ * 容器启动快速属于秒级别；虚拟机通常需要几分钟去启动。
  * 容器需要的资源更少，在操作系统级别进行虚拟化，容器和内核交互，几乎没有性能损耗。
- * 容器更轻量，其架构可以共用一个内核与共享应用程序库，所占内存极小。同样的硬件环境，容器运行的镜像数远多于虚拟机数量，容器对系统的利用率非常高。
+ * 容器更轻量，其架构可以共用一个内核与共享应用程序库，所占内存极小。同样的硬件环境，容器运行的镜像数远多于虚拟机数量。对系统的利用率非常高。
  * 与虚拟机相比，容器隔离性更弱；而虚拟机可实现系统级别隔离。
  * 安全性上，容器的安全性也更弱；而虚拟机权限是分离的。
 
@@ -92,29 +92,29 @@ int main() {
 
  * 单核运行结果
  	* Mesos资源使用情况
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/1core_mesos.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/1core_mesos.png)
 
  	* Job整体运行时间
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/1core_overview.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/1core_overview.png)
 
  	* Map阶段运行时间
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/1core_map.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/1core_map.png)
 
  	* Reduce阶段运行时间
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/1core_reduce.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/1core_reduce.png)
 
  * 双核运行结果
  	* Mesos资源使用情况
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/2core_mesos.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/2core_mesos.png)
 
  	* Job整体运行时间
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/2core_overview.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/2core_overview.png)
 
  	* Map阶段运行时间
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/2core_map.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/2core_map.png)
 
  	* Reduce阶段运行时间
- 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework 1/2core_reduce.png)
+ 	![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%201/2core_reduce.png)
 
 ### 时间对比
 可以看到处理大规模数据时，单核确实会比双核慢。但如果待处理的文件较小，两者则基本没有区别，考虑并行通信时间甚至双核会比单核慢。<br />
