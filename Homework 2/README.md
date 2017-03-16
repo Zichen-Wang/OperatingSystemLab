@@ -22,6 +22,8 @@ Executor主要用于在slave上启动框架内部的任务。由于不同的框�
  * framework决定使用该资源，并自行将资源分好，将描述交给master
  * master按照描述将资源落实到每个任务上执行
 
+总的来说Mesos是一个二级调度机制，第一级是向框架提供总的资源，第二级由框架自身进行二次调度然后将结果返回给Mesos。
+
 ---
 Master部分在`/path/to/mesos/src/master`下，`main.cpp`是入口程序，其内部会生成一个master对象，该对象开始监听信息。
 
@@ -30,3 +32,42 @@ Slave部分在`/path/to/mesos/src/slave`下，同样`main.cpp`是slave的入口�
 MesosSchedulerDriver的启动模块在`/path/to/mesos/src/sched/sched.cpp`下，它创建一个scheduler的进程等待framework通过http的方式来注册，相当于给外部framework提供了一个接口。
 
 MesosExecutorDriver的启动模块在`/path/to/mesos/src/exec/exec.cpp`下，同理它创建了一个executor进程等待framework通过http的方式注册。
+
+## 框架在Mesos上的运行过程，并与传统操作系统进行对比
+
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/cluster-overview.png)
+
+上图表示了Spark的整体运行框架。当运行Mesos的时候，Mesos的master代替上图中Cluster Master作为Spark的Master。
+
+如果一个Spark驱动程序提交一个作业并开始分发调度作业相关的任务，将会由Mesos来决定每个任务分发到哪台机器上。Mesos在调度短期任务的时候，会根据提交的任务来动态分配资源，而不需要依赖于静态的资源划分。
+
+Spark在启动后会在Mesos的Master上进行注册，master始终监听来自外部框架的信息。具体需要注册scheduler和executor。注册完毕后，Spark会生成Spark context。此时Master会向Spark报告此时的资源情况，Spark如果需要执行任务则会检查资源是否符合要求，若符合则会接收资源然后在内部进行调度，将结果返回给Master，由Master去调用slave上的Spark executor来执行任务。
+
+### 对比
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/os-and-mesos.png)
+
+ * 相同点：操作系统内核和Mesos都是提供了资源的抽象，操作系统内核将真正的物理资源如CPU、内存、GPU、网卡和IO设备等进行抽象管理和分配；而Mesos是将若干个计算机能提供的计算资源如CPU的核数、总的运行内存、总的GPU资源等进行管理和调度。
+
+ * 不同点：传统操作系统中，进程请求内存资源时，操作系统会立即响应，在物理内存中开辟地址空间将其映射到虚存上，若物理内存空间不足则会将一部分物理内存放到硬盘的交换空间中；而Mesos则会向外部框架提供资源信息，外部框架可以选择拒绝或者接受。这是因为要保证正在运行的任务的资源一直存在。
+
+
+## Master和Slave初始化过程
+
+### Master
+Master的启动代码是从`/path/to/mesos/src/master/main.cpp`开始的。
+
+1.`master::Flags flags`解析命令行参数和环境变量。Mesos封装了Google的gflags来解析命令行参数和环境变量，在`/path/to/mesos/src/master/flags.cpp`里有对flags封装的代码。
+
+2.`process::firewall::install(move(rules))`即如果有参数`--firewall_rules`则会添加规则。
+3.`ModuleManager::load(flags.modules.get())`即如果有参数`--modules`或者`--modules_dir=dirpath`，则会将路径中的so文件装载进来。
+4.创建`allocator`的一个实例。
+5.接下来是一些hook和zookeeper的其他参数处理。
+6.最后进行Master的初始化操作，该源文件在`/path/to/mesos/src/master.cpp`中，
+```C++
+void Master::initialize()
+{
+	LOG(INFO) << "Master " << info_.id() << " (" << info_.hostname() << ")"
+			<< " started on " << string(self()).substr(7);
+	LOG(INFO) << "Flags at startup: " << flags;
+	...
+```
