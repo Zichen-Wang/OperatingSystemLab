@@ -56,13 +56,13 @@ Spark在启动后会在Mesos的Master上进行注册，master始终监听来自�
 ### Master
 Master的启动代码是从`/path/to/mesos/src/master/main.cpp`开始的。
 
-1.`master::Flags flags`解析命令行参数和环境变量。Mesos封装了Google的gflags来解析命令行参数和环境变量，在`/path/to/mesos/src/master/flags.cpp`里有对flags封装的代码。
+1. `master::Flags flags`解析命令行参数和环境变量。Mesos封装了Google的gflags来解析命令行参数和环境变量，在`/path/to/mesos/src/master/flags.cpp`里有对flags封装的代码。
 
-2.`process::firewall::install(move(rules))`即如果有参数`--firewall_rules`则会添加规则。
+2. `process::firewall::install(move(rules))`即如果有参数`--firewall_rules`则会添加规则。
 3.`ModuleManager::load(flags.modules.get())`即如果有参数`--modules`或者`--modules_dir=dirpath`，则会将路径中的so文件装载进来。
-4.创建`allocator`的一个实例。
-5.接下来是一些hook和zookeeper的其他参数处理。
-6.最后进行Master的初始化操作，该源文件在`/path/to/mesos/src/master.cpp`中，
+4. 创建`allocator`的一个实例。
+5. 接下来是一些hook和zookeeper的其他参数处理。
+6. 最后进行Master的初始化操作，该源文件在`/path/to/mesos/src/master.cpp`中，
 ```C++
 void Master::initialize()
 {
