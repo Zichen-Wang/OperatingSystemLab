@@ -23,6 +23,7 @@ Executor主要用于在slave上启动框架内部的任务。由于不同的框�
  * master按照描述将资源落实到每个任务上执行
 
 总的来说Mesos是一个二级调度机制，第一级是向框架提供总的资源，第二级由框架自身进行二次调度然后将结果返回给Mesos。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/overall.png)
 
 ---
 Master部分在`/path/to/mesos/src/master`下，`main.cpp`是入口程序，其内部会生成一个master对象，该对象开始监听信息。
@@ -54,15 +55,22 @@ Spark在启动后会在Mesos的Master上进行注册，master始终监听来自�
 ## Master和Slave初始化过程
 
 ### Master
-Master的启动代码是从`/path/to/mesos/src/master/main.cpp`开始的。
+Master的启动代码是从`/path/to/mesos/src/master/main.cpp`的main函数开始的。
 
 1. `master::Flags flags`解析命令行参数和环境变量。Mesos封装了Google的gflags来解析命令行参数和环境变量，在`/path/to/mesos/src/master/flags.cpp`里有对flags封装的代码。
+```C++
+Try<flags::Warnings> load = flags.load("MESOS_", argc, argv);
+```
 
 2. `process::firewall::install(move(rules))`即如果有参数`--firewall_rules`则会添加规则。
 3.`ModuleManager::load(flags.modules.get())`即如果有参数`--modules`或者`--modules_dir=dirpath`，则会将路径中的so文件装载进来。
 4. 创建`allocator`的一个实例。
+```C++
+const string allocatorName = flags.allocator;
+Try<Allocator*> allocator = Allocator::create(allocatorName);
+```
 5. 接下来是一些hook和zookeeper的其他参数处理。
-6. 最后进行Master的初始化操作，该源文件在`/path/to/mesos/src/master.cpp`中，
+6. 最后启动master线程对master初始化操作，该初始化文件在`/path/to/mesos/src/master.cpp`中，
 ```C++
 void Master::initialize()
 {
@@ -70,4 +78,65 @@ void Master::initialize()
 			<< " started on " << string(self()).substr(7);
 	LOG(INFO) << "Flags at startup: " << flags;
 	...
+```
+
+### Slave
+Slave的启动是从`/path/to/mesos/src/slave/main.cpp`中的main函数开始的。
+
+1. `slave::Flags flags`解析命令行参数和环境变量。
+```C++
+Try<flags::Warnings> load = flags.load("MESOS_", argc, argv);
+```
+2. `process::firewall::install(move(rules))`如果有参数--firewall_rules则会添加规则。
+3. `ModuleManager::load(flags.modules.get())`如果有参数--modules或者--modules_dir=dirpath，则会将路径中的so文件load进来。
+4. 初始化Containerizer
+```C++
+Fetcher fetcher;
+Try<Containerizer*> containerizer =
+    Containerizer::create(flags, false, &fetcher);
+```
+在`/path/to/mesos/src/slave/containerizer/containerizer.cpp`中有create函数
+```C++
+Try<Containerizer*> Containerizer::create(
+    const Flags& flags,
+    bool local,
+    Fetcher* fetcher)
+```
+接下来是根据配置文件获取一系列的containerizer类型并放到set中，然后根据类型来创建containerizer。
+5. Detect Master的leader对象。
+6. 创建垃圾收集器，状态更新器，资源检测器。
+7. 启动slave线程进行slave初始化，该初始化文件在`/path/to/mesos/src/slave/slave.cpp`里面。
+```C++
+void Slave::initialize()
+{
+	LOG(INFO) << "Mesos agent started on " << string(self()).substr(5);
+	LOG(INFO) << "Flags at startup: " << flags;
+	...
+}
+```
+ * 在检查了一些列system环境和http相关设置后，首先进行资源预估器的初始化
+```C++
+Try<Nothing> initialize =
+    resourceEstimator->initialize(defer(self(), &Self::usage));
+...
+initialize = qosController->initialize(defer(self(), &Self::usage));
+```
+ * 根据参数`--work-dir`创建工作目录，检查资源是否分配到位。
+ * 初始化attributes、hostname和statusUpdateManager。
+ * 接下来注册一系列处理函数。
+
+## Mesos资源调度算法
+调度器的初始化在`/path/to/mesos/src/master/allocator/allocator.cpp`中，然后用hierarchicalDRF算法进行资源的分配。该算法文件在`/path/to/mesos/src/master/allocator/mesos/hierarchical.cpp`中。
+ * DRF全称为`Dominant Resource Fairness (DRF)`。DRF采用公平分配的方法，将多种资源在不需要静态划分的情况下进行公平分配。
+ * Min-max算法是最大化最小值，在进行单一资源分配时，相当于对该资源分成`N`份，每个用户`1/N`。多种资源存在时，如CPU，内存、硬盘、网络等，同理也可以进行min-max算法分配。
+ * 比如现在有`<9 CPU, 18 GB RAM>`，有两个用户，其中用户A运行的任务的需求向量为`<1 CPU, 4 GB RAM>`，用户B运行的任务的需求向量为`<3 CPU，1 GB RAM>`，用户可以执行尽量多的任务来使用系统的资源。
+ * 在上述方案中，A的每个任务消耗总CPU的1/9和总内存的2/9，所以A的dominant resource是内存；B的每个任务消耗总CPU的1/3和总内存的1/18，所以B的dominant resource为CPU。DRF会均衡用户的dominant shares，执行3个用户A的任务，执行2个用户B的任务。三个用户A的任务总共消耗了`<3 CPU，12 GB RAM>`，两个用户B的任务总共消耗了`<6 CPU，2 GB RAM>`；在这个分配中，每一个用户的dominant share是相等的，用户A获得了2/3的RAM，而用户B获得了2/3的CPU。
+ * Min-max可以通过解线性不等式组的算法来确定分配情况。
+```
+max(x,y) #(Maximize allocations)
+subject to
+
+x + 3y <= 9 #(CPU constraint)
+4x + y <= 18 #(Memory Constraint)
+2x/9 = y/3 #(Equalize dominant shares)
 ```
