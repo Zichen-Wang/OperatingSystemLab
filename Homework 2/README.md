@@ -80,6 +80,18 @@ void Master::initialize()
 	LOG(INFO) << "Flags at startup: " << flags;
 	...
 ```
+ * 初始化role，并设置weight权值。
+ * 初始化allocator。
+```C++
+allocator->initialize(
+	flags.allocation_interval,
+	defer(self(), &Master::offer, lambda::_1, lambda::_2),
+	defer(self(), &Master::inverseOffer, lambda::_1, lambda::_2),
+	weights,
+	flags.fair_sharing_excluded_resource_names);
+```
+ * 监听消息，注册处理函数。
+ * 竞争成为master中的leader，或检查当前的leader。
 
 ### Slave
 Slave的启动是从`/path/to/mesos/src/slave/main.cpp`中的main函数开始的。
@@ -127,12 +139,12 @@ initialize = qosController->initialize(defer(self(), &Self::usage));
  * 接下来注册一系列处理函数。
 
 ## Mesos资源调度算法
-调度器的初始化在`/path/to/mesos/src/master/allocator/allocator.cpp`中，然后用hierarchicalDRF算法进行资源的分配。该算法文件在`/path/to/mesos/src/master/allocator/mesos/hierarchical.cpp`中。
+调度器的初始化在`/path/to/mesos/src/master/allocator/allocator.cpp`中，然后用hierarchicalDRF算法进行资源的分配。该算法文件在`/path/to/mesos/src/master/allocator/mesos/hierarchical.cpp`中。同时用`sorter.hpp`来对framework进行排序。
  * DRF全称为`Dominant Resource Fairness (DRF)`。DRF采用公平分配的方法，将多种资源在不需要静态划分的情况下进行公平分配。
  * Min-max算法是最大化最小值，在进行单一资源分配时，相当于对该资源分成`N`份，每个用户`1/N`。多种资源存在时，如CPU，内存、硬盘、网络等，同理也可以进行min-max算法分配。
  * 比如现在有`<9 CPU, 18 GB RAM>`，有两个用户，其中用户A运行的任务的需求向量为`<1 CPU, 4 GB RAM>`，用户B运行的任务的需求向量为`<3 CPU，1 GB RAM>`，用户可以执行尽量多的任务来使用系统的资源。
  * 在上述方案中，A的每个任务消耗总CPU的1/9和总内存的2/9，所以A的dominant resource是内存；B的每个任务消耗总CPU的1/3和总内存的1/18，所以B的dominant resource为CPU。DRF会均衡用户的dominant shares，执行3个用户A的任务，执行2个用户B的任务。三个用户A的任务总共消耗了`<3 CPU，12 GB RAM>`，两个用户B的任务总共消耗了`<6 CPU，2 GB RAM>`；在这个分配中，每一个用户的dominant share是相等的，用户A获得了2/3的RAM，而用户B获得了2/3的CPU。
- * Min-max可以通过解线性不等式组的算法来确定分配情况。
+ * 以上的这个分配可以用如下方式计算出来：x和y分别是用户A和用户B的分配任务的数目，那么用户A消耗了`<x CPU，4x GB RAM>`，用户B消耗了`<3y CPU，y GB RAM>`，在图三中用户A和用户B消耗了同等dominant resource；用户A的dominant share为4x/18，用户B的dominant share为3y/9。所以DRF分配可以通过求解以下的优化问题来得到：
 ```
 max(x,y) #(Maximize allocations)
 subject to
@@ -141,3 +153,4 @@ x + 3y <= 9 #(CPU constraint)
 4x + y <= 18 #(Memory Constraint)
 2x/9 = y/3 #(Equalize dominant shares)
 ```
+ * 最后解出x=3以及y=2，因而用户A获得`<3 CPU，12 GB RAM>`，B得到`<6 CPU，2 GB RAM>`。
