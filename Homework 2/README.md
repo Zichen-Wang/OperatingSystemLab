@@ -23,6 +23,7 @@ Executor主要用于在slave上启动框架内部的任务。由于不同的框�
  * master按照描述将资源落实到每个任务上执行
 
 总的来说Mesos是一个二级调度机制，第一级是向框架提供总的资源，第二级由框架自身进行二次调度然后将结果返回给Mesos。
+<br />
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/overall.png)
 
 ---
