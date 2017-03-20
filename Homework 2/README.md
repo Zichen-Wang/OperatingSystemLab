@@ -14,13 +14,17 @@ Framework是指外部的计算框架，如Spark、Hadoop、MPI等。这些框架
 
 Executor主要用于在slave上启动框架内部的任务。由于不同的框架，任务执行的接口和方式都不一样。当一个新的框架要接入mesos时，需要一个对应的executor，告诉mesos该如何启动任务。
 
-下图是一个简单的Mesos资源调度步骤：
+下图是一个简单的Mesos工作流程：
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/architecture-example.jpg)
 
- * Slave向master汇报自己的资源情况
- * master向scheduler发送可以提供的资源情况，让framework决定是否使用
- * framework决定使用该资源，并自行将资源分好，将描述交给master
- * master按照描述将资源落实到每个任务上执行
+1. 当出现以下几种事件中的一种时，会触发资源分配行为：新框架注册、框架注销、增加节点、出现空闲资源等；
+2. Mesos Master中的Allocator模块为某个框架分配资源，并将资源封装到ResourceOffersMessage（Protocal Buffer Message）中，通过网络传输给SchedulerProcess；
+3. SchedulerProcess调用用户编写的Scheduler中的resourceOffers函数（不能版本可能有变动），告之有新资源可用；
+4. 用户的Scheduler调用MesosSchedulerDriver中的launchTasks()函数，告之将要启动的任务；
+5. SchedulerProcess将待启动的任务封装到LaunchTasksMessage（Protocal Buffer Message）中，通过网络传输给Mesos Master；
+6. Mesos Master将待启动的任务封装成RunTaskMessage发送给各个Mesos Slave；
+7. Mesos Slave收到RunTaskMessage消息后，将之进一步发送给对应的ExecutorProcess；
+8. ExecutorProcess收到消息后，进行资源本地化，并准备任务运行环境，最终调用用户编写的Executor中的launchTask启动任务（如果Executor尚未启动，则先要启动Executor。
 
 总的来说Mesos是一个二级调度机制，第一级是向框架提供总的资源，第二级由框架自身进行二次调度然后将结果返回给Mesos。
 <br />
