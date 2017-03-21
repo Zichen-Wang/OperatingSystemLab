@@ -158,3 +158,7 @@ x + 3y <= 9 #(CPU constraint)
 2x/9 = y/3 #(Equalize dominant shares)
 ```
  * 最后解出x=3以及y=2，因而用户A获得`<3 CPU，12 GB RAM>`，B得到`<6 CPU，2 GB RAM>`。
+
+## 写一个完成简单工作的框架
+
+我使用Python完成了一项数组求和的工作
