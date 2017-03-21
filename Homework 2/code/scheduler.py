@@ -128,7 +128,7 @@ def main(master):
 	framework = Dict()
 	framework.user = getpass.getuser()
 	framework.name = "GetSumFramework"
-	framework.hostname = socket.gethostname();
+	framework.hostname = socket.gethostname()
 
 
 	# init driver

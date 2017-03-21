@@ -164,4 +164,33 @@ x + 3y <= 9 #(CPU constraint)
 我使用Python完成了一项数组求和的工作，使用了pymesos这个包。<br />
 性能上比串行程序慢了很多，因为都是在本地虚拟机上跑的，10个tasks和通信以及文件读写开销是很大的，所以比串行慢可以理解。<br />
 我在pymesos的包中找到了example，并仔细阅读了example，发现example就是直接无限制启动task，然后在标准错误输出中打印字符串。我将其扩展改造，写了以下两个Python文件：
- * [scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/code/executor.py){:target="_blank"}
+ * [scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/code/scheduloer.py) GetSumScheduler类的定义和整个framework的入口函数
+ * [executor.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/code/executor.py) GetSumExecutor类的定义
+
+### Scheduler部分代码执行过程
+1. 初始化exeuctor信息，包括名称、执行路径和资源信息等。
+2. 初始化framework信息，包括名称、用户信息和Host。
+3. 初始化scheduler驱动，这个类封装在pymesos包中，使程序员摆脱了底层相关的事情，直接调用API即可。
+4. 增加信号处理函数，Ctrl + C。
+5. 开启运行的线程，然后用while等待线程。
+6. 进入GetSumScheduler类，其构造函数首先会读文件，然后将数据平均分成10份，然后创建10个task，每个task执行一份数据。启动task的过程基本是example里写好的，但是需要再定义一个frameworkMessage方法来接收从executor执行回来的结果。
+7. 在updateStatus中判断是否10个tasks的任务执行完毕，若完毕则可以结束scheduler。
+
+### Executor部分代码执行过程
+1. 先发送当前的状态信息，初始化时状态为RUNNING
+2. 接着执行核心的部分，这里很简单，只是求和。
+3. 执行结束后会再发送FINISHED的信息。
+（注意如果executor代码发生异常，则可能会卡在RUNNING和FINISHED之间，这里需要再处理）
+
+ * 运行时的状态
+ ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/runningInfo.png)
+
+ * 运行结果
+ ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/result.png)
+
+---
+存在的不足：<br />
+ * 功能上比较简陋，只实现了求和，因为没有学过并行程序设计，暂时没有更好的idea。
+ * 由于完成时间比较仓促，程序的鲁棒性很差，没有进行各种的异常处理，可能导致莫名其妙的错误。
+ * 数据和Task的分配方式基本都是靠人工，没有考虑到数据的特点。
+ * 运行速度慢，可能和Python语言特性有关。但大部分时间都花在初始化和结束task，可以发现从RUNNING到FINISHED速度很快说明真正计算的部分耗时很少。
