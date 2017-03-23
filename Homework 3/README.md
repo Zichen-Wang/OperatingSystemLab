@@ -1,5 +1,9 @@
 # 第三次作业
 
 ## 安装配置Docker
-Done. 下图是运行hello-world的截图
-![](https://)
+
+在服务器上安装成功，下图是运行hello-world的截图
+
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/image/dockerInfo.png)
+
+## 
