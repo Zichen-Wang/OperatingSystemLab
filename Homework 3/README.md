@@ -8,7 +8,7 @@
 
 ## 介绍Docker基本命令
 
-### 容器命令 docker run
+### 1.容器命令 docker run
 #### 含义：
  * docker run是在新的容器中运行一个进程。 它使用自己的文件系统、网络、独立的进程树开启新的进程。用于开启新进程的IMAGE可以定义在容器中运行的进程的默认配置，连接到的网络环境等等，但是docker run会将控制权转交给开启容器的操作者，所以docker run有比其它docker命令更多的选项。
 
@@ -30,7 +30,7 @@
 --cpu-percent int            限制CPU利用率（仅在Windows下可用）。
 --cpu-period int             Linux下限制CPU的使用周期。
 --cpu-quota int              Linux下限制CPU的使用份额。
--c, --cpu-shares int         CPU份额（相对权重），表示各个容器将按照权重来分整个CPU的利用率。默认为0表示最大值。
+-c, --cpu-shares int         CPU份额（相对权重），表示各个容器将按照权重来分整个CPU的利用率。
 --cpuset-cpus string         绑定容器到指定CPU上运行，例如：0-3、0,1等。
 --cpuset-mems string         绑定容器到指定内存上运行，例如：0-3、0,1等。（仅在NUMA非统一内存访问架构系统上有效）
 -d, --detach                 在后台运行容器并且打印容器号。默认不在后台运行。
@@ -106,6 +106,12 @@
 --volumes-from value         为指定的容器挂载卷。
 -w, --workdir string         容器内部的工作目录。
 ```
+#### IMAGE
+ * 这里需要指定一个镜像名。如果在本地找不到，则会从镜像库中下载。
+
+#### COMMAND ARGS...
+ * 运行镜像时给出一个命令，这个命令可以携带参数。
+
 #### 例子
 1. `docker run --read-only --tmpfs /run --tmpfs /tmp -i -t ubuntu /bin/bash` <br />
 运行ubuntu镜像，运行镜像时执行bash命令。启动容器时将进程的标准输出依附到控制台上，容器的文件系统为只读，但为了处理一些临时写的文件，需要挂载tmpfs临时的档案目录。
@@ -116,7 +122,7 @@
 
 ---
 
-### 镜像命令 docker images
+### 2.镜像命令 docker images
 #### 含义
  * 这个命令用来列举在本地的镜像。包括镜像名称、版本号、镜像ID、创建时间和大小。
 
@@ -125,7 +131,7 @@
 
 #### 选项
 ```
--a, --all               展示所有的镜像（默认隐藏中介镜像）。
+-a, --all               展示所有的镜像（默认隐藏中间过程的镜像）。
 --digests               展示摘要，sha256哈希值。
 -f, --filter value      根据条件来过滤输出。
 --format string         用模板格式化输出。
@@ -142,7 +148,7 @@
 
 ---
 
-### 网络管理命令 docker network
+### 3.网络管理命令 docker network
 `docker network`下面有6个子命令，分别是：
  * `docker network connect` 将一个容器连接入网络。
  * `docker network create` 创建一个网络。
@@ -152,3 +158,85 @@
  * `docker network rm` 移除一个或多个网络。
 
 #### connect
+
+
+---
+
+### 4.创建镜像命令 docker commit
+#### 含义
+ * 从一个现存的容器中通过指定名字和ID来创建新版本的镜像。新版本镜像需要包含容器的文件系统、磁盘卷、标签。
+ * 可以用`Dockerfile`文件来生成协助创建新版本镜像。
+
+#### 用法
+`docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]`
+
+#### 选项
+```
+-a, --author string           指定作者。例如："John Hannibal Smith <hannibal@a-team.com>"。
+-c, --change value            当创建镜像的时候使用Dockerfile中的指令。支持的指令有：CMD|ENTRYPOINT|ENV|EXPOSE|LABEL|ONBUILD|USER|VOLUME|WORKDIR
+--help                        打印帮助。
+-m, --message string          提交时候的说明。
+-p, --pause                   提交的时候暂停容器的运行。
+```
+#### CONTAINER
+ * 可以使用容器的名字或者ID。
+
+#### REPOSITORY
+ * 指定镜像仓库，可以是本地存储。
+ * 可以指定远程镜像仓库，如docker hub，也可自建仓库来存放image。
+
+#### 例子
+在原始ubuntu镜像中安装了gcc，然后退出容器。<br />
+执行`docker commit 650a07b1d3d1 ubuntu_with_gcc` <br />
+可以将刚刚结束的容器650a07b1d3d1制作成ubuntu_with_gcc镜像。
+
+---
+
+### 5.创建镜像命令 docker build
+#### 含义
+ * 从指定的路径中读取`Dockerfile`文件来创建生成一个新的镜像。
+
+#### 用法
+`docker build [OPTIONS] PATH | URL | -`
+
+#### 选项
+```
+--build-arg value             设置创建时环境变量
+                              例如：--build-arg=http_proxy="http://some.proxy.url"，来创建一个http_proxy的环境变量
+                              通过build-arg选项传递的参数将作为在容器中的命令运行时的环境。
+
+--cgroup-parent string        为容器选择父cgroup。
+--cpu-period int              限制CPU的使用周期。
+--cpu-quota int               限制CPU的使用份额。
+-c, --cpu-shares int          CPU份额（相对权重），表示各个容器将按照权重来分整个CPU的利用率。
+--cpuset-cpus string          绑定容器到指定CPU上运行，例如：0-3、0,1等。
+--cpuset-mems string          绑定容器到指定内存上运行，例如：0-3、0,1等。（仅在NUMA非统一内存访问架构系统上有效）
+--disable-content-trust       跳过镜像验证，默认为开启。
+-f, --file string             Dockerfile的文件名（默认是'PATH/Dockerfile'）。
+--force-rm                    总是移除中间过程的镜像。build失败也会移除。默认为关闭。
+--help                        打印帮助
+--isolation string            该选项指定了容器的分离技术。Windows下是hyperv，Linux下是default。
+--label value                 为容器设置元数据。例如：--label com.example.key=value。
+-m, --memory string           容器内存限制。格式: <数字>[<单位>] b, k, m 或 g。当为0时表示不限制。
+--memory-swap string          设置容器内存加交换空间的总大小。-1表示无限制的交换空间。
+--no-cache                    在创建过程中不使用cache。默认为关闭。
+--pull                        总是试图创建一个新版本的镜像。默认为关闭。
+-q, --quiet                   成功是不打印镜像的ID。默认为关闭。
+--rm                          创建成功后移除中介的容器。默认为开启。
+--shm-size string             容器共享内存/dev/shm大小，默认为64MB。
+-t, --tag value               名称和和可选的标签。格式为'名称:标签'。
+--ulimit value                Ulimit选项。Ulimit用于限制shell启动进程所占用的资源。
+```
+
+#### PATH | URL | -
+ * 设置`Dockerfile`文件所在的路径。
+
+#### 例子
+1. `docker build .` <br />
+在当前目录使用`Dockerfile`文件创建一个新的镜像。
+2. `docker build --rm=false .` <br />
+在当前目录使用`Dockerfile`文件创建一个新的镜像，并保留中间过程镜像。
+3. `docker build -t fedora/jboss:1.0 .` <br />
+在当前目录使用`Dockerfile`文件创建一个新的镜像，名称为fedora下的jboss，版本为1.0。
+4. `docker build github.com/scollier/purpletest` <br />
+在github.com的仓库中找到远程目录，然后用其中的`Dockerfile`文件创建镜像。
