@@ -107,6 +107,45 @@
 -w, --workdir string         容器内部的工作目录。
 ```
 #### 例子
-1. docker run --read-only --tmpfs /run --tmpfs /tmp -i -t ubuntu /bin/bash <br />
+1. `docker run --read-only --tmpfs /run --tmpfs /tmp -i -t ubuntu /bin/bash` <br />
 运行ubuntu镜像，运行镜像时执行bash命令。启动容器时将进程的标准输出依附到控制台上，容器的文件系统为只读，但为了处理一些临时写的文件，需要挂载tmpfs临时的档案目录。
-2.
+2. `docker run -p 8080:80 -d -i -t ubuntu/httpd`
+运行带有apache服务器的ubuntu镜像，在后台运行，将容器的80端口映射到宿主机的8080端口。
+3. `docker run -v /home/pkusei:/data1 -i -t ubuntu bash`
+运行ubuntu镜像，运行镜像时执行bash命令。启动容器时将宿主机的/home/pkusei目录挂载到容器的/data1目录下。
+
+
+### 镜像命令 docker images
+#### 含义
+ * 这个命令用来列举在本地的镜像。包括镜像名称、版本号、镜像ID、创建时间和大小。
+
+#### 用法
+`docker images [OPTIONS] [REPOSITORY[:TAG]]`
+
+#### 选项
+```
+-a, --all               展示所有的镜像（默认隐藏中介镜像）。
+--digests               展示摘要，sha256哈希值。
+-f, --filter value      根据条件来过滤输出。
+--format string         用模板格式化输出。
+--help                  打印帮助。
+--no-trunc              打印原始的镜像信息，不经过裁剪。
+-q, --quiet             仅打印镜像ID。
+```
+
+#### 例子
+1. `docker images`
+直接展示所有镜像的信息，效果等同于`docker images -a`或`docker images --all`。
+2. `docker images -q --no-trunc`
+打印不经过精简的镜像ID。
+
+### 网络管理命令 docker network
+`docker network`下面有6个子命令，分别是：
+ * `docker network connect` 将一个容器连接入网络。
+ * `docker network create` 创建一个网络。
+ * `docker network disconnect` 将一个容器断开网络。
+ * `docker network inspect` 展示一个或多个网络的详细信息。
+ * `docker network ls` 列举网络。
+ * `docker network rm` 移除一个或多个网络。
+
+#### connect
