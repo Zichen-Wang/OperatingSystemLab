@@ -16,7 +16,7 @@
 
  * 如果当前的IMAGE没有下载或准备好，docker run会和docker pull IMAGE一样在加载容器运行镜像之前自动下载该镜像和所有的依赖。
 #### 用法
- * docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
+ * `docker run [OPTIONS] IMAGE [COMMAND] [ARG...]`
 #### 选项
- *     --add-host value               添加自定义的host到IP地址映射 (host:ip) 默认是空
- * -a, --attach value                 依附到STDIN、STDOUT、STDERR。在前端运行环境下，docker run在容器中开启的进程可以依附到控制台的标准输入、输出和错误输出，用-a选项来指定即可。
+ * `--add-host value`             添加自定义的host到IP地址映射 (host:ip) 默认是空
+ * `-a, --attach value`           依附到STDIN、STDOUT、STDERR。在前端运行环境下，docker run在容器中开启的进程可以依附到控制台的标准输入、输出和错误输出，用-a选项来指定即可。
