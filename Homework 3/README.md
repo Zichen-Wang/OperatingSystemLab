@@ -109,9 +109,9 @@
 #### 例子
 1. `docker run --read-only --tmpfs /run --tmpfs /tmp -i -t ubuntu /bin/bash` <br />
 运行ubuntu镜像，运行镜像时执行bash命令。启动容器时将进程的标准输出依附到控制台上，容器的文件系统为只读，但为了处理一些临时写的文件，需要挂载tmpfs临时的档案目录。
-2. `docker run -p 8080:80 -d -i -t ubuntu/httpd`
+2. `docker run -p 8080:80 -d -i -t ubuntu/httpd` <br />
 运行带有apache服务器的ubuntu镜像，在后台运行，将容器的80端口映射到宿主机的8080端口。
-3. `docker run -v /home/pkusei:/data1 -i -t ubuntu bash`
+3. `docker run -v /home/pkusei:/data1 -i -t ubuntu bash` <br />
 运行ubuntu镜像，运行镜像时执行bash命令。启动容器时将宿主机的/home/pkusei目录挂载到容器的/data1目录下。
 
 
@@ -134,9 +134,9 @@
 ```
 
 #### 例子
-1. `docker images`
+1. `docker images` <br />
 直接展示所有镜像的信息，效果等同于`docker images -a`或`docker images --all`。
-2. `docker images -q --no-trunc`
+2. `docker images -q --no-trunc` <br />
 打印不经过精简的镜像ID。
 
 ### 网络管理命令 docker network
