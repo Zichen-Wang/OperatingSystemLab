@@ -6,6 +6,8 @@
 
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/dockerInfo.png)
 
+---
+
 ## 介绍Docker基本命令
 
 ### 1. 容器命令 docker run
@@ -322,3 +324,11 @@
 在当前目录使用`Dockerfile`文件创建一个新的镜像，名称为fedora下的jboss，版本为1.0。
 4. `docker build github.com/scollier/purpletest` <br />
 在github.com的仓库中找到远程目录，然后用其中的`Dockerfile`文件创建镜像。
+
+---
+
+## 创建镜像并搭建服务器
+### 创建一个基础镜像为ubuntu的docker镜像
+命令：`docker run -i -t --name homework ubuntu /bin/bash`
+### 加入nginx服务器
+命令：`apt install nginx -y`
