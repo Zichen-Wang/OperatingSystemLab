@@ -134,9 +134,9 @@
 -a, --all               展示所有的镜像（默认隐藏中间过程的镜像）。
 --digests               展示摘要，sha256哈希值。
 -f, --filter value      根据条件来过滤输出。
---format string         用模板格式化输出。
+--format string         用go模板格式化输出。
 --help                  打印帮助。
---no-trunc              打印原始的镜像信息，不经过裁剪。
+--no-trunc              打印原始的镜像ID信息，不经过裁剪。
 -q, --quiet             仅打印镜像ID。
 ```
 
@@ -144,7 +144,7 @@
 1. `docker images` <br />
 直接展示所有镜像的信息，效果等同于`docker images -a`或`docker images --all`。
 2. `docker images -q --no-trunc` <br />
-打印不经过精简的镜像ID。
+仅打印不经过裁剪的镜像ID。
 
 ---
 
@@ -157,8 +157,90 @@
  * `docker network ls` 列举网络。
  * `docker network rm` 移除一个或多个网络。
 
-#### connect
+#### `docker network connect`
+ * 含义：将一个容器连接入网络。在相同网络内的容器可以相互通信。
+ * 用法：`docker network connect [OPTIONS] NETWORK CONTAINER`
+ * 选项：
+```
+--alias value             为容器添加网络域的别名。
+--help                    打印帮助。
+--ip string               IP地址。
+--ip6 string              IPv6地址。
+--link value              添加到其他容器的链接。
+--link-local-ip value     为容器添加本地链接。
+```
+ * NETWORK: 可以使用网络的名字或者ID。
+ * CONTAINER: 可以使用容器的名字或者ID。
+ * 例子：`docker network connect simple-network 123ffe481a1f` <br />
+ 将容器123ffe481a1f加入simple-network网络。
 
+#### `docker network create`
+ * 含义：创建一个网络。
+ * 用法：`docker network create [OPTIONS] NETWORK`
+ * 选项：
+```
+--aux-address value         给网络驱动用的附属IPv4或IPv6地址。
+-d, --driver string         指定管理网络的驱动。默认是bridge。
+--gateway value             为子网指定IPv4或IPv6网关。
+--help                      打印帮助。
+--internal                  限制外部访问该网络。
+--ip-range value            从一段子域中为容器分配IP。
+--ipam-driver string        IP地址管理驱动。默认为default。
+--ipam-opt value            指定IP地址管理驱动的选项。
+--ipv6                      激活IPv6网络。
+--label value               为网络设置元数据。
+-o, --opt value             为网络驱动指定选项。
+--subnet value              设置在CIDR无类别域间路由中的子网。(?)
+```
+ * 例子：`docker network create -d bridge my-bridge-network` <br />
+ 用bridge网络驱动创建my-bridge-network网络。
+
+#### `docker network disconnect`
+ * 含义：将容器断开指定的网络。
+ * 用法：`docker network disconnect [OPTIONS] NETWORK CONTAINER`
+ * 选项：
+```
+-f, --force                 强制使容器断开指定网络。
+--help                      打印帮助。
+```
+ * NETWORK 和 CONTAINER 含义同上
+ * 例子：`docker network disconnect simple-network 8befde452085` <br />
+ 断开容器8befde452085的simple-network网络。
+
+
+#### `docker network inspect`
+ * 含义：展示一个或多个网络的细节信息。返回JSON数据结构。
+ * 用法：`docker network inspect [OPTIONS] NETWORK [NETWORK...]`
+ * 选项：
+```
+-f, --format string         使用给定的go模板格式化输出。
+--help                      打印帮助。
+```
+ * 例子：`docker network inspect simple-network my-bridge-network` <br />
+ 展示simple-network和my-bridge-network网络信息。
+
+#### `docker network ls`
+ * 含义：展示所有网络。
+ * 用法：`docker network ls [OPTIONS]`
+ * 选项：
+```
+-f, --filter value          提供过滤选项。例如：dangling=true。
+--help                      打印帮助。
+--no-trunc                  打印原始的网络ID信息，不经过裁剪。
+-q, --quiet                 仅打印网络ID。
+```
+ * 例子：`docker network ls --no-trunc -q` <br />
+ 仅打印不经过裁剪的网络ID。
+
+#### `docker network rm`
+ * 含义：移除一个或多个网络。
+ * 用法：`docker network rm NETWORK [NETWORK...]`
+ * 选项：
+```
+--help                      打印帮助。
+```
+ * 例子：`docker network rm simple-network my-bridge-network` <br />
+ 移除simple-network和my-bridge-network网络。
 
 ---
 
