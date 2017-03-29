@@ -127,7 +127,7 @@
  * 这个命令用来列举在本地的镜像。包括镜像名称、版本号、镜像ID、创建时间和大小。
 
 #### 用法
-`docker images [OPTIONS] [REPOSITORY[:TAG]]`
+ * `docker images [OPTIONS] [REPOSITORY[:TAG]]`
 
 #### 选项
 ```
@@ -250,7 +250,7 @@
  * 可以用`Dockerfile`文件来生成协助创建新版本镜像。
 
 #### 用法
-`docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]`
+ * `docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]`
 
 #### 选项
 ```
@@ -279,7 +279,7 @@
  * 从指定的路径中读取`Dockerfile`文件来创建生成一个新的镜像。
 
 #### 用法
-`docker build [OPTIONS] PATH | URL | -`
+ * `docker build [OPTIONS] PATH | URL | -`
 
 #### 选项
 ```
