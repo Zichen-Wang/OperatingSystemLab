@@ -114,6 +114,7 @@
 3. `docker run -v /home/pkusei:/data1 -i -t ubuntu bash` <br />
 运行ubuntu镜像，运行镜像时执行bash命令。启动容器时将宿主机的/home/pkusei目录挂载到容器的/data1目录下。
 
+---
 
 ### 镜像命令 docker images
 #### 含义
@@ -138,6 +139,8 @@
 直接展示所有镜像的信息，效果等同于`docker images -a`或`docker images --all`。
 2. `docker images -q --no-trunc` <br />
 打印不经过精简的镜像ID。
+
+---
 
 ### 网络管理命令 docker network
 `docker network`下面有6个子命令，分别是：
