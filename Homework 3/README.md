@@ -329,21 +329,32 @@
 
 ## 创建镜像并搭建服务器
 ### 创建一个基础镜像为ubuntu的docker镜像
-命令：`docker run -i -t --name homework -p 9999:80 ubuntu /bin/bash` <br />
+命令：`root@oo-lab:/# docker run -i -t --name homework -p 9999:80 ubuntu /bin/bash` <br />
 容器名为homework，并将容器的80端口映射到宿主机的9999端口。
 ### 加入nginx服务器
 命令：
 ```
-apt update
-apt install nginx -y
+root@578f606816b5:/# apt update
+root@578f606816b5:/# apt install nginx -y
 ```
 ### 启动nginx服务器
-命令：`nginx`
+命令：`root@578f606816b5:/# nginx`
 
 ### 利用tail命令将访问日志输出到标准输出流
-命令：`tail -f /var/log/nginx/access.log`
+命令：`root@578f606816b5:/# tail -f /var/log/nginx/access.log`
 
 * 再把虚拟机的端口9999映射到外网IP的端口9999 <br />
-首次访问162.105.174.39:9999，运行截图和访问日志：
+首次访问`162.105.174.39:9999`，网页截图和访问日志：
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/helloNginx.png)
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/nginxLog.png)
+
+### 编辑Web服务器主页
+ * 在容器中`/var/www/html/`目录下添加`index.html`。
+ * 重新访问`162.105.174.39:9999`，网页截图：
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/myPage.png)
+
+### 将现在的容器内容制作成镜像，方便在后台运行该容器并开启nginx服务器
+ * 首先停止该容器：`root@578f606816b5:/# exit`
+ * 制作新镜像：`root@oo-lab:/# docker commit homework ubuntu_with_nginx`
+ * 在后台启动带新镜像的容器homework并以前台方式运行nginx：<br />
+ `docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g "daemon off;"`
