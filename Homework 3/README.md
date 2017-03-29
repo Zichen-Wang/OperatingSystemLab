@@ -18,7 +18,7 @@
 #### 用法
  * docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 #### 选项
-<pre>
+```
 --add-host value             添加自定义的host到IP地址映射(host:ip)。
 -a, --attach value           依附到STDIN、STDOUT、STDERR。在前端运行环境下，docker run在容器中开启的进程可以依附到控制台的标准输入、输出和错误输出，用-a选项来指定即可。
 --blkio-weight value         限制IO带宽的相对权重，从10到1000。
@@ -105,4 +105,4 @@
 --volume-driver string       可选的容器卷参数。
 --volumes-from value         为指定的容器挂载卷。
 -w, --workdir string         容器内部的工作目录。
-</pre>
+```
