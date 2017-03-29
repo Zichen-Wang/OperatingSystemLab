@@ -329,6 +329,21 @@
 
 ## 创建镜像并搭建服务器
 ### 创建一个基础镜像为ubuntu的docker镜像
-命令：`docker run -i -t --name homework ubuntu /bin/bash`
+命令：`docker run -i -t --name homework -p 9999:80 ubuntu /bin/bash` <br />
+容器名为homework，并将容器的80端口映射到宿主机的9999端口。
 ### 加入nginx服务器
-命令：`apt install nginx -y`
+命令：
+```
+apt update
+apt install nginx -y
+```
+### 启动nginx服务器
+命令：`nginx`
+
+### 利用tail命令将访问日志输出到标准输出流
+命令：`tail -f /var/log/nginx/access.log`
+
+* 再把虚拟机的端口9999映射到外网IP的端口9999 <br />
+首次访问162.105.174.39:9999，运行截图和访问日志：
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/helloNginx.png)
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/nginxLog.png)
