@@ -356,5 +356,5 @@ root@578f606816b5:/# apt install nginx -y
 ### 将现在的容器内容制作成镜像，方便在后台运行该容器并开启nginx服务器
  * 首先停止该容器：`root@578f606816b5:/# exit`
  * 制作新镜像：`root@oo-lab:/# docker commit homework ubuntu_with_nginx`
- * 在后台启动带新镜像的容器homework并以前台方式运行nginx：<br />
+ * 在后台启动带新镜像的容器http_server并以前台方式运行nginx：<br />
  `docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g "daemon off;"`
