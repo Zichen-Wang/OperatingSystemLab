@@ -8,7 +8,7 @@
 
 ## 介绍Docker基本命令
 
-### 1.容器命令 docker run
+### 1. 容器命令 docker run
 #### 含义：
  * docker run是在新的容器中运行一个进程。 它使用自己的文件系统、网络、独立的进程树开启新的进程。用于开启新进程的IMAGE可以定义在容器中运行的进程的默认配置，连接到的网络环境等等，但是docker run会将控制权转交给开启容器的操作者，所以docker run有比其它docker命令更多的选项。
 
@@ -122,7 +122,7 @@
 
 ---
 
-### 2.镜像命令 docker images
+### 2. 镜像命令 docker images
 #### 含义
  * 这个命令用来列举在本地的镜像。包括镜像名称、版本号、镜像ID、创建时间和大小。
 
@@ -148,7 +148,7 @@
 
 ---
 
-### 3.网络管理命令 docker network
+### 3. 网络管理命令 docker network
 `docker network`下面有6个子命令，分别是：
  * `docker network connect` 将一个容器连接入网络。
  * `docker network create` 创建一个网络。
@@ -162,7 +162,7 @@
 
 ---
 
-### 4.创建镜像命令 docker commit
+### 4. 创建镜像命令 docker commit
 #### 含义
  * 从一个现存的容器中通过指定名字和ID来创建新版本的镜像。新版本镜像需要包含容器的文件系统、磁盘卷、标签。
  * 可以用`Dockerfile`文件来生成协助创建新版本镜像。
@@ -192,7 +192,7 @@
 
 ---
 
-### 5.创建镜像命令 docker build
+### 5. 创建镜像命令 docker build
 #### 含义
  * 从指定的路径中读取`Dockerfile`文件来创建生成一个新的镜像。
 
