@@ -157,7 +157,7 @@
  * `docker network ls` 列举网络。
  * `docker network rm` 移除一个或多个网络。
 
-#### `docker network connect`
+#### (1) `docker network connect`
  * 含义：将一个容器连接入网络。在相同网络内的容器可以相互通信。
  * 用法：`docker network connect [OPTIONS] NETWORK CONTAINER`
  * 选项：
@@ -174,7 +174,7 @@
  * 例子：`docker network connect simple-network 123ffe481a1f` <br />
  将容器123ffe481a1f加入simple-network网络。
 
-#### `docker network create`
+#### (2) `docker network create`
  * 含义：创建一个网络。
  * 用法：`docker network create [OPTIONS] NETWORK`
  * 选项：
@@ -195,7 +195,7 @@
  * 例子：`docker network create -d bridge my-bridge-network` <br />
  用bridge网络驱动创建my-bridge-network网络。
 
-#### `docker network disconnect`
+#### (3) `docker network disconnect`
  * 含义：将容器断开指定的网络。
  * 用法：`docker network disconnect [OPTIONS] NETWORK CONTAINER`
  * 选项：
@@ -208,7 +208,7 @@
  断开容器8befde452085的simple-network网络。
 
 
-#### `docker network inspect`
+#### (4) `docker network inspect`
  * 含义：展示一个或多个网络的细节信息。返回JSON数据结构。
  * 用法：`docker network inspect [OPTIONS] NETWORK [NETWORK...]`
  * 选项：
@@ -219,7 +219,7 @@
  * 例子：`docker network inspect simple-network my-bridge-network` <br />
  展示simple-network和my-bridge-network网络信息。
 
-#### `docker network ls`
+#### (5) `docker network ls`
  * 含义：展示所有网络。
  * 用法：`docker network ls [OPTIONS]`
  * 选项：
@@ -232,7 +232,7 @@
  * 例子：`docker network ls --no-trunc -q` <br />
  仅打印不经过裁剪的网络ID。
 
-#### `docker network rm`
+#### (6) `docker network rm`
  * 含义：移除一个或多个网络。
  * 用法：`docker network rm NETWORK [NETWORK...]`
  * 选项：
