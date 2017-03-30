@@ -387,7 +387,11 @@ root@578f606816b5:/# apt install nginx -y
  * 在后台启动带新镜像的容器http_server，并将容器端口80映射到宿主机端口9999，接着以前台方式运行nginx：<br />
  `root@oo-lab:/# docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g "daemon off;"`
  * 当前容器运行情况为：
-![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/status.png)
+```
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                           PORTS                  NAMES
+96c5b22c509b        ubuntu_with_nginx   "nginx -g 'daemon off"   18 hours ago        Up 2 seconds                       0.0.0.0:9999->80/tcp   http_server
+578f606816b5        ubuntu              "/bin/bash"              19 hours ago        Exited (0) 12 seconds ago                                  homework
+```
 
 ### 创建一个自己定义的network，模式为bridge
  * 命令：`root@oo-lab:/# docker network create -d bridge my-bridge-network`
