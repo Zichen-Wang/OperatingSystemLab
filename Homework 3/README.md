@@ -426,9 +426,47 @@ root@578f606816b5:/# apt install nginx -y
  * 这种模式最大的缺点是：容器都是直接共享主机网络空间的，如果出现任何的网络冲突都会出错，比如在这个模式下无法启动两个都监听在80端口的容器。
 
 ### null模式
- * 这种模式正如它的名字说明的那样：不做配置。容器有自己的`network namespace`，但是没有做任何的网络配置，仅仅有本地回环网络`127.0.0.1`。
+ * 这种模式正如名字说明的那样：不做配置。容器有自己的`network namespace`，但是没有做任何的网络配置，仅仅有本地回环网络`127.0.0.1`。
  * 这个模式的网络仅可以创建一个，即docker安装时已经创建好的none。
  * 让容器运行在null模式，可以在启动容器的命令行添加`--network none`，即`root@oo-lab:/# docker run -it --network none ubuntu /bin/bash`。
  * 和host模式类似，一旦容器连接到了null模式，就不能再连接到其他模式和断开null模式，即不能通过`docker network connect`或`docker network disconnect`来操作该容器的网络。
 
 ### overlay模式
+#### 配置overlay模式
+ * 使用docker内置的swarm来管理结点，首先在第一台主机上输入命令`docker swarm init`，便会创建一个swarm的管理结点。
+```
+root@oo-lab:/# docker swarm init
+Swarm initialized: current node (dcemal5p2w9y3eo9sh5ctmm8t) is now a manager.
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join \
+    --token SWMTKN-1-28vqn6goedmwbpl4bbts2hvcxp8m4mrntyveabh7jddh274g13-3bq2a4f6taw2ptciw1tj8amap \
+    172.16.6.251:2377
+
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+```
+ * 接着在第二和第三台主机上输入以上添加worker的命令。
+```
+root@oo-lab:/# docker swarm join \
+>     --token SWMTKN-1-28vqn6goedmwbpl4bbts2hvcxp8m4mrntyveabh7jddh274g13-3bq2a4f6taw2ptciw1tj8amap \
+>     172.16.6.251:2377
+This node joined a swarm as a worker.
+```
+ * 在第一台主机也就是Leader上查看结点：
+```
+root@oo-lab:/# docker node ls
+ID                           HOSTNAME  STATUS  AVAILABILITY  MANAGER STATUS
+086y3mxmhs8xl2prs5fh2c5wo    oo-lab    Ready   Active
+bn2joyo560kft2t7x1im7ttgg    oo-lab    Ready   Active
+dcemal5p2w9y3eo9sh5ctmm8t *  oo-lab    Ready   Active        Leader
+```
+ * 这时候在每个主机下的`docker network`都会出现名为`ingress`的overlay模式的网络和`docker_gwbridge`的bridge模式网络。
+ * `ingress`网络主要用来做负载均衡，为边界mesh路由而准备的网络。它不能被`docker run`或者`docker create`使用，也不能被`docker service create`来创建服务。
+ * `docker_gwbridge`可以让容器和集群外产生外部连接。
+ * 这时手动创建一个overlay网络：`root@oo-lab:/# docker network create -d overlay my-multi-host-network`。
+ * swarm集群不能创建非集群的普通容器，需要创建`docker service`，使用如下命令创建一个名为my-web的nginx网络服务，并且创建3个tasks，将Leader容器中的80端口映射到宿主机8888端口上。<br />
+ `docker service create --replicas 3 --network my-multi-host-network --name my-web -p 8888:80 nginx`
+ * 此时另外两个主机上也会出现`my-multi-host-network`的overlay网络。
+ * 再将Leader宿主机的8888端口映射到外网的8888端口，即可看到nginx主页。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/nginxSwarm.png)
