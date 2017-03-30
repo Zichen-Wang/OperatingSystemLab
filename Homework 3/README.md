@@ -327,6 +327,34 @@
 
 ---
 
+### 6. 容器命令 docker exec
+#### 含义
+ * 在一个运行中的容器中执行新的命令。
+
+#### 用法
+ * `docker exec [OPTIONS] CONTAINER COMMAND [ARG...]`
+
+#### 选项
+```
+-d, --detach         分离模式：在后台运行命令。
+--detach-keys        为分离后的容器重写钥匙序列。
+--help               打印帮助。
+-i, --interactive    没有被依附的情况下保持标准输入的依附。
+--privileged         为容器提供一些特权，默认是关闭。开启时容器可以访问到任何的设备，可以访问到容器外的任何内容。
+-t, --tty            为容器分配一个虚假的TTY控制台。
+-u, --user           用户名，格式：<名称|uid>[:<组名称|gid>]
+```
+
+#### CONTAINER 和 COMMAND 含义同上
+
+#### 例子
+1. `docker exec -it my_container /bin/bash` <br />
+在运行中的my_container容器中打开一个新的控制台，并保持输入依附。
+2. `docker exec my_container cat /etc/hosts` <br />
+在运行中的my_container容器中输出`/etc/hosts`的内容。
+
+
+
 ## 创建镜像并搭建服务器
 ### 创建一个基础镜像为ubuntu的docker镜像
 命令：`root@oo-lab:/# docker run -i -t --name homework -p 9999:80 ubuntu /bin/bash` <br />
@@ -365,12 +393,42 @@ root@578f606816b5:/# apt install nginx -y
  * 命令：`root@oo-lab:/# docker network create -d bridge my-bridge-network`
  * 当前网络定义情况为：
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/network.png)
+ * 新定义的bridge网络配置为：
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/customNetwork.png)
 
 ### 让自己配的web服务器容器连到这一网络中
-命令：`root@oo-lab:/# docker network connect my-bridge-network http_server`
+* 由于Docker容器创建的时候会自动加入Docker自带的默认bridge网络，该网络的子网为`172.17.0.1`，首先从容器中断掉这个网络（非必须）<br />
+`root@oo-lab:/# docker network disconnect bridge http_server`
+* 加入自己定义的network：`root@oo-lab:/# docker network connect my-bridge-network http_server`
 
 ### 通过宿主机访问容器内的web服务器
- * 先通过`root@oo-lab:/# ps -ef`查看web服务器容器的IP地址为`172.17.0.2`。
- * 宿主机访问web服务器命令：`root@oo-lab:/# curl 172.17.0.2:80`
+ * 先通过`root@oo-lab:/# docker exec http_server cat /etc/hosts`查看web服务器容器的IP地址为`172.18.0.2`。
+ * 宿主机访问web服务器命令：`root@oo-lab:/# curl 172.18.0.2:80`
  * 返回结果：
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/curl.png)
+
+---
+
+## Docker容器网络模式
+### bridge模式
+ * 在默认情况下，docker会在宿主机上建立一个`docker0`的网桥，相当于一个虚拟的交换机，所有的容器在默认情况下会连接到这个虚拟的交换机上。
+ * docker在安装后也会自动创建一个自带的bridge网络配置，用`docker network inspect bridge`可以看到这个网络配置的详细信息。其中发现这个网络创建的一个子网就是`172.17.0.1/16`，容器在默认情况下会自动加入这个子网。加入后容器可以通过这个网关将数据包转发到主机的网卡上，进而连接外网。
+ * bridge模式的网络可以创建多个。当docker操作者新创建一个bridge时，其网关也会变化，如创建后的`my-bridge-network`网关为`172.18.0.1/16`。
+ * 在同一个bridge中的容器网络可以互通，宿主机也可以ping处在bridge网络的容器。
+ * 容器可以加入多个bridge网络，通过`docker network connect`或`docker network disconnect`来可以自由连接或断开bridge网络。
+
+### host模式
+ * 在这个模式下，docker不会为容器创建单独的网络命名空间namespace，而是共享主机的network namespace。也就是说：容器可以直接访问主机上所有的网络信息。
+ * 这个模式的网络仅可以创建一个，即docker安装时已经创建好的host。
+ * 让容器运行在host模式，可以在启动容器的命令行添加`--network host`，即`root@oo-lab:/# docker run -it --network host ubuntu /bin/bash`。
+ * 进入后的配置完全和主机一样，终端的前缀提示符也完全一样，显示是`root@oo-lab`。一开始我还很困惑为什么没有反应，结果是已经进入了该容器内。
+ * 一旦容器连接到了host模式，就不能再连接到其他模式和断开host模式，即不能通过`docker network connect`或`docker network disconnect`来操作该容器的网络。
+ * 这种模式最大的缺点是：容器都是直接共享主机网络空间的，如果出现任何的网络冲突都会出错，比如在这个模式下无法启动两个都监听在80端口的容器。
+
+### null模式
+ * 这种模式正如它的名字说明的那样：不做配置。容器有自己的`network namespace`，但是没有做任何的网络配置，仅仅有本地回环网络`127.0.0.1`。
+ * 这个模式的网络仅可以创建一个，即docker安装时已经创建好的none。
+ * 让容器运行在null模式，可以在启动容器的命令行添加`--network none`，即`root@oo-lab:/# docker run -it --network none ubuntu /bin/bash`。
+ * 和host模式类似，一旦容器连接到了null模式，就不能再连接到其他模式和断开null模式，即不能通过`docker network connect`或`docker network disconnect`来操作该容器的网络。
+
+### overlay模式
