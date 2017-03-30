@@ -362,7 +362,9 @@ root@578f606816b5:/# apt install nginx -y
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/status.png)
 
 ### 创建一个自己定义的network，模式为bridge
-命令：`root@oo-lab:/# docker network create -d bridge my-bridge-network`
+ * 命令：`root@oo-lab:/# docker network create -d bridge my-bridge-network`
+ * 当前网络定义情况为：
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/network.png)
 
 ### 让自己配的web服务器容器连到这一网络中
 命令：`root@oo-lab:/# docker network connect my-bridge-network http_server`
