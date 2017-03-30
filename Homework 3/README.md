@@ -341,7 +341,7 @@ root@578f606816b5:/# apt install nginx -y
 命令：`root@578f606816b5:/# nginx`
 
 ### 利用tail命令将访问日志输出到标准输出流
-命令：`root@578f606816b5:/# tail -f /var/log/nginx/access.log`
+* 命令：`root@578f606816b5:/# tail -f /var/log/nginx/access.log`
 
 * 再把虚拟机的端口9999映射到外网IP的端口9999 <br />
 首次访问`162.105.174.39:9999`，网页截图和访问日志：
@@ -358,3 +358,15 @@ root@578f606816b5:/# apt install nginx -y
  * 制作新镜像：`root@oo-lab:/# docker commit homework ubuntu_with_nginx`
  * 在后台启动带新镜像的容器http_server，并将容器端口80映射到宿主机端口9999，接着以前台方式运行nginx：<br />
  `root@oo-lab:/# docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g "daemon off;"`
+
+### 创建一个自己定义的network，模式为bridge
+命令：`root@oo-lab:/# docker network create -d bridge my-bridge-network`
+
+### 让自己配的web服务器容器连到这一网络中
+命令：`root@oo-lab:/# docker network connect my-bridge-network http_server`
+
+### 通过宿主机访问容器内的web服务器
+ * 先通过`root@oo-lab:/# ps -ef`查看web服务器容器的IP地址为`172.17.0.2`。
+ * 宿主机访问web服务器命令：`root@oo-lab:/# curl 172.17.0.2:80`
+ * 返回结果：
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/curl.png)
