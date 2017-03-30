@@ -388,6 +388,7 @@ root@578f606816b5:/# apt install nginx -y
  `root@oo-lab:/# docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g "daemon off;"`
  * 当前容器运行情况为：
 ```
+root@oo-lab:/# docker ps -a
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                           PORTS                  NAMES
 96c5b22c509b        ubuntu_with_nginx   "nginx -g 'daemon off"   18 hours ago        Up 2 seconds                       0.0.0.0:9999->80/tcp   http_server
 578f606816b5        ubuntu              "/bin/bash"              19 hours ago        Exited (0) 12 seconds ago                                  homework
@@ -396,9 +397,49 @@ CONTAINER ID        IMAGE               COMMAND                  CREATED        
 ### 创建一个自己定义的network，模式为bridge
  * 命令：`root@oo-lab:/# docker network create -d bridge my-bridge-network`
  * 当前网络定义情况为：
-![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/network.png)
+```
+root@oo-lab:/# docker network ls
+NETWORK ID          NAME                    DRIVER              SCOPE
+b669753e111a        bridge                  bridge              local
+64149ba635bf        host                    host                local
+66a03170958b        my-bridge-network       bridge              local
+3433aea97d81        none                    null                local
+```
  * 新定义的bridge网络配置为：
-![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/customNetwork.png)
+ ```
+ root@oo-lab:/# docker network inspect my-bridge-network
+[
+    {
+        "Name": "my-bridge-network",
+        "Id": "66a03170958b3d34381f4147fdeed278069f61e4249a748f2d98a727ad832e6c",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.18.0.0/16",
+                    "Gateway": "172.18.0.1/16"
+                }
+            ]
+        },
+        "Internal": false,
+        "Containers": {
+            "96c5b22c509b8a601bf0a8c78bffed7b60122f845c18240a42b676c74fca6d5f": {
+                "Name": "http_server",
+                "EndpointID": "e1acca3a431e3d1667bae369699c3f76b9e3ce5ca97be7a447cdccc991f4692b",
+                "MacAddress": "02:42:ac:12:00:02",
+                "IPv4Address": "172.18.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {},
+        "Labels": {}
+    }
+]
+ ```
 
 ### 让自己配的web服务器容器连到这一网络中
 * 由于Docker容器创建的时候会自动加入Docker自带的默认bridge网络，该网络的子网为`172.17.0.1`，首先从容器中断掉这个网络（非必须）<br />
