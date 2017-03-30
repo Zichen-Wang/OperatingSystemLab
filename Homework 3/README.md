@@ -477,7 +477,6 @@ b669753e111a        bridge                  bridge              local
  * 和host模式类似，一旦容器连接到了null模式，就不能再连接到其他模式和断开null模式，即不能通过`docker network connect`或`docker network disconnect`来操作该容器的网络。
 
 ### overlay模式
-#### 配置overlay模式
  * 使用docker内置的swarm来管理结点，首先在第一台主机上输入命令`docker swarm init`，便会创建一个swarm的管理结点。
 ```
 root@oo-lab:/# docker swarm init
@@ -515,3 +514,12 @@ dcemal5p2w9y3eo9sh5ctmm8t *  oo-lab    Ready   Active        Leader
  * 此时另外两个主机上也会出现`my-multi-host-network`的overlay网络。
  * 再将Leader宿主机的8888端口映射到外网的8888端口，即可看到nginx主页。
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/nginxSwarm.png)
+ * overlay配合swarm是典型的master-slave架构，该网络模式主要用于docker服务和集群的创建。而其他的网络模式都是local模式，只能在本地网络中访问，任何和外部操作都需要经过主机做端口映射。overlay网络通过一个新的网段来管理一个集群，通过注册的方式来发现新结点，避免了普通模式下通讯的繁琐。
+
+
+## 阅读mesos中负责与docker交互的源码
+
+### mesos与docker的交互
+### docker类中的run函数
+
+## 写一个framework，以容器的方式运行task
