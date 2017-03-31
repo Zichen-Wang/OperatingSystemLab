@@ -385,7 +385,7 @@ root@578f606816b5:/# apt install nginx -y
  * 首先停止该容器：`root@578f606816b5:/# exit`
  * 制作新镜像：`root@oo-lab:/# docker commit homework ubuntu_with_nginx`
  * 在后台启动带新镜像的容器http_server，并将容器端口80映射到宿主机端口9999，接着以前台方式运行nginx：<br />
- `root@oo-lab:/# docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g "daemon off;"`
+ `root@oo-lab:/# docker run -d --name http_server -p 9999:80 ubuntu_with_nginx nginx -g 'daemon off;'`
  * 当前容器运行情况为：
 ```
 root@oo-lab:/# docker ps -a
@@ -623,3 +623,105 @@ Try<Subprocess> s = subprocess(
 ---
 
 ## 写一个framework，以容器的方式运行task
+ * 用python实现，源代码：[scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/code/scheduloer.py)
+ * 底层通信接口引用自`pymesos`库，鸣谢`douban`。
+ * 代码执行过程：
+ 1. 初始化framework信息。
+```python
+# Framework info
+framework = Dict()
+framework.user = getpass.getuser()
+framework.name = "DockerFramework"
+framework.hostname = socket.gethostname()
+```
+ 2. 使用底层包提供的接口注册driver，使用默认的executor。
+```python
+# Use default executor
+driver = MesosSchedulerDriver(
+  DockerScheduler(),
+  framework,
+  master,
+  use_addict=True,
+)
+```
+ 3. 增加信号处理函数，Ctrl + C。
+ 4. 初始化和运行driver线程，然后主线程死循环等待driver线程。
+```python
+def run_driver_thread():
+    driver.run()
+
+driver_thread = Thread(target=run_driver_thread, args=())
+driver_thread.start()
+
+print('Scheduler running, Ctrl+C to quit.')
+signal.signal(signal.SIGINT, signal_handler)
+while driver_thread.is_alive():
+    time.sleep(1)
+```
+ 5. driver线程运行后会进入`DockerScheduler`类中。
+ 6. 在接收了master提供的资源后，便开始初始化dockerInfo、containerInfo和commandInfo。
+```python
+# DockerInfo
+DockerInfo = Dict()
+DockerInfo.image = 'ubuntu_with_nginx'
+DockerInfo.network = 'HOST'
+
+# ContainerInfo
+ContainerInfo = Dict()
+ContainerInfo.type = 'DOCKER'
+ContainerInfo.docker = DockerInfo
+
+# CommandInfo used for starting nginx
+CommandInfo = Dict()
+CommandInfo.shell = False
+CommandInfo.value = 'nginx'
+# It is so tricky!!!!
+CommandInfo.arguments = ['-g', 'daemon off;']
+```
+ 7. 汇总信息到task上。
+```python
+task = Dict()
+task_id = str(uuid.uuid4())
+task.task_id.value = task_id
+task.agent_id.value = offer.agent_id.value
+task.name = 'A simple docker task'
+task.container = ContainerInfo
+task.command = CommandInfo
+
+task.resources = [
+    dict(name='cpus', type='SCALAR', scalar={'value': TASK_CPU}),
+    dict(name='mem', type='SCALAR', scalar={'value': TASK_MEM}),
+]
+```
+ 8. 打印task信息，启动task，同时task计数器加1。并会更新task信息。因为这里只需要启动1个task，所以在启动完task之后线程就会返回。
+```python
+print("Launching a task")
+self.launched_task += 1
+driver.launchTasks(offer.id, [task], filters)
+```
+```python
+def statusUpdate(self, driver, update):
+    logging.debug('Status update TID %s %s',
+                  update.task_id.value,
+                  update.state)
+    if update.state == 'TASK_RUNNING':
+        print('Task is running!')
+```
+ 9. 此后由于线程没有结束，进程便会死循环。
+ * `mesos agent`开启命令
+```
+sudo ./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos --ip=172.16.6.24 \
+--hostname=162.105.174.39 --containerizers=docker,mesos --image_providers=docker --isolation=docker/runtime`
+```
+ * 以后台方式运行framework：`pkusei@oo-lab:~/hw3$ python scheduler.py 172.16.6.251 &`
+ * 当前docker容器运行情况：
+```
+root@oo-lab:/home/pkusei# docker ps -a
+root@oo-lab:/home/pkusei# docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+689c4ea883f5        ubuntu_with_nginx   "nginx -g 'daemon off"   34 seconds ago      Up 33 seconds                           mesos-0fdc533b-0f48-4757-8e85-1554f3eef141-S0.89525051-adee-4811-a76f-a4a1f52fa5b8
+```
+ * 退出ssh后，由于在后台运行，该task会一直在运行状态。（也可以终止掉该task，docker容器仍然会继续运行）
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/task.png)
+ * 将agent机器的80端口映射到外网的80端口后，访问`162.105.174.39:80`，可以看到自定义的主页。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/final.png)
