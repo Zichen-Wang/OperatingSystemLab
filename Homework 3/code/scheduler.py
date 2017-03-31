@@ -15,14 +15,11 @@ from addict import Dict
 
 TASK_CPU = 1
 TASK_MEM = 256
-EXECUTOR_CPUS = 1
-EXECUTOR_MEM = 256
 
 
-class MinimalScheduler(Scheduler):
 
-	def __init__(self, executor):
-		self.executor = executor
+class DockerScheduler(Scheduler):
+
 
 	def resourceOffers(self, driver, offers):
 		filters = {'refuse_seconds': 5}
@@ -33,13 +30,25 @@ class MinimalScheduler(Scheduler):
 			if cpus < TASK_CPU or mem < TASK_MEM:
 				continue
 
+			DockerInfo = Dict()
+			DockerInfo.image = 'ubuntu_with_nginx'
+			DockerInfo.network = 'HOST'
+
+			ContainerInfo = Dict()
+			ContainerInfo.type = 'DOCKER'
+			ContainerInfo.docker = DockerInfo
+
+			CommandInfo = Dict()
+			CommandInfo.shell = false
+			CommandInfo.value = 'nginx -g daemon off;'
+
 			task = Dict()
 			task_id = str(uuid.uuid4())
 			task.task_id.value = task_id
 			task.agent_id.value = offer.agent_id.value
-			task.name = 'task {}'.format(task_id)
-			task.executor = self.executor
-			task.data = encode_data('Hello from task {}!'.format(task_id))
+			task.name = 'A simple docker task'
+			task.container = ContainerInfo
+			task.command = CommandInfo
 
 			task.resources = [
 				dict(name='cpus', type='SCALAR', scalar={'value': TASK_CPU}),
@@ -47,6 +56,8 @@ class MinimalScheduler(Scheduler):
 			]
 
 			driver.launchTasks(offer.id, [task], filters)
+
+			driver.stop()
 
 	def getResource(self, res, name):
 		for r in res:
@@ -61,25 +72,15 @@ class MinimalScheduler(Scheduler):
 
 
 def main(master):
-	executor = Dict()
-	executor.executor_id.value = 'MinimalExecutor'
-	executor.name = executor.executor_id.value
-	executor.command.value = '%s %s' % (
-		sys.executable,
-		abspath(join(dirname(__file__), 'executor.py'))
-	)
-	executor.resources = [
-		dict(name='mem', type='SCALAR', scalar={'value': EXECUTOR_MEM}),
-		dict(name='cpus', type='SCALAR', scalar={'value': EXECUTOR_CPUS}),
-	]
 
 	framework = Dict()
 	framework.user = getpass.getuser()
-	framework.name = "MinimalFramework"
+	framework.name = "DockerFramework"
 	framework.hostname = socket.gethostname()
 
+	# Use default executor
 	driver = MesosSchedulerDriver(
-		MinimalScheduler(executor),
+		DockerScheduler(),
 		framework,
 		master,
 		use_addict=True,

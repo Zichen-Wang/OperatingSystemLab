@@ -525,8 +525,8 @@ dcemal5p2w9y3eo9sh5ctmm8t *  oo-lab    Ready   Active        Leader
  * 先说`docker.cpp`。`docker.cpp`相当于一个命令组装器，负责将解析出来的配置文件一一对应成docker命令。其中有`version`、`create`（包括容器的创建和镜像的创建）、`run`（最核心）、`stop`、`kill`、`rm`、`inspect`、`ps`和`pull`，以及一些错误处理的函数。
  * `spec.cpp`负责解析发来的配置文件。将`cantainerInfo`、`commandInfo`等配置信息解析成C++的map类。
  * `executor.cpp`是核心代码，这里实现了一个简单的执行docker容器的executor。这份代码负责执行一个docker容器，然后重定向日志输出文件到配置好的标准输出和标准错误输出。它仅仅启动一个简单的task，也就是docker容器，然后会在这个任务结束或者死亡的时候退出。
- * 这里边定义了两个类，一个是`executor`的进程类，包括注册、启动task、结束task等基本的mesos方法。另一个是`docker`的执行类，这个类运行在之前定义的executor进程类上，在其上继承了docker的一些操作。
- * `executor.cpp`中的入口函数在`main`函数中。
+ * 这里边定义了两个类，一个是`executor`的进程类，包括注册、启动task、结束task等基本的mesos方法。另一个是`docker`的执行类，这个类运行在之前定义的executor进程类上。
+ * `executor.cpp`中的入口函数在`main`函数中：
  1. 处理传进来的参数和环境变量flag，检查`docker`、`container`、`sandbox_directory`和`mapped_directory`是否存在。
  2. 加载`task_environment`核心的配置文件，该文件为JSON格式，交给`spec.cpp`去解析。
  3. 配置不推荐使用的`MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD`和已经被废弃的`stop_timeout`。
