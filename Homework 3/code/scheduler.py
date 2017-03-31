@@ -14,12 +14,14 @@ from pymesos import MesosSchedulerDriver, Scheduler, encode_data
 from addict import Dict
 
 TASK_CPU = 1
-TASK_MEM = 256
-
+TASK_MEM = 128
+TASK_NUM = 1
 
 
 class DockerScheduler(Scheduler):
 
+	def __init__(self):
+		self.launched_task = 0
 
 	def resourceOffers(self, driver, offers):
 		filters = {'refuse_seconds': 5}
@@ -27,20 +29,27 @@ class DockerScheduler(Scheduler):
 		for offer in offers:
 			cpus = self.getResource(offer.resources, 'cpus')
 			mem = self.getResource(offer.resources, 'mem')
+			if self.launched_task == TASK_NUM:
+				return
 			if cpus < TASK_CPU or mem < TASK_MEM:
 				continue
 
+			# DockerInfo
 			DockerInfo = Dict()
 			DockerInfo.image = 'ubuntu_with_nginx'
 			DockerInfo.network = 'HOST'
 
+			# ContainerInfo
 			ContainerInfo = Dict()
 			ContainerInfo.type = 'DOCKER'
 			ContainerInfo.docker = DockerInfo
 
+			# CommandInfo used for starting nginx
 			CommandInfo = Dict()
-			CommandInfo.shell = false
-			CommandInfo.value = 'nginx -g daemon off;'
+			CommandInfo.shell = False
+			CommandInfo.value = 'nginx'
+			# It is so tricky!!!!
+			CommandInfo.arguments = ['-g', 'daemon off;']
 
 			task = Dict()
 			task_id = str(uuid.uuid4())
@@ -55,9 +64,10 @@ class DockerScheduler(Scheduler):
 				dict(name='mem', type='SCALAR', scalar={'value': TASK_MEM}),
 			]
 
+			print("Launching a task")
+			self.launched_task += 1
 			driver.launchTasks(offer.id, [task], filters)
 
-			driver.stop()
 
 	def getResource(self, res, name):
 		for r in res:
@@ -69,10 +79,12 @@ class DockerScheduler(Scheduler):
 		logging.debug('Status update TID %s %s',
 					  update.task_id.value,
 					  update.state)
-
+		if update.state == 'TASK_RUNNING':
+			print('Task is running!')
 
 def main(master):
 
+	# Framework info
 	framework = Dict()
 	framework.user = getpass.getuser()
 	framework.name = "DockerFramework"
@@ -97,10 +109,8 @@ def main(master):
 
 	print('Scheduler running, Ctrl+C to quit.')
 	signal.signal(signal.SIGINT, signal_handler)
-
 	while driver_thread.is_alive():
 		time.sleep(1)
-
 
 if __name__ == '__main__':
 	import logging
