@@ -710,18 +710,18 @@ def statusUpdate(self, driver, update):
  9. 此后由于线程没有结束，进程便会死循环。
  * `mesos agent`开启命令
 ```
-sudo ./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
+./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
 --ip=172.16.6.24 --hostname=162.105.174.39 --containerizers=docker,mesos \
 --image_providers=docker --isolation=docker/runtime`
 ```
- * 以后台方式运行framework：`pkusei@oo-lab:~/hw3$ python scheduler.py 172.16.6.251 &`
+ * 以nohup方式运行framework：`pkusei@oo-lab:~/hw3$ python scheduler.py 172.16.6.251 &`
  * 当前docker容器运行情况：
 ```
 root@oo-lab:/home/pkusei# docker ps -a
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
-689c4ea883f5        ubuntu_with_nginx   "nginx -g 'daemon off"   34 seconds ago      Up 33 seconds                           mesos-0fdc533b-0f48-4757-8e85-1554f3eef141-S0.89525051-adee-4811-a76f-a4a1f52fa5b8
+de02fe29e056        ubuntu_with_nginx   "nginx -g 'daemon off"   12 seconds ago      Up 11 seconds                           mesos-0fdc533b-0f48-4757-8e85-1554f3eef141-S0.7454d3a3-fe72-4b9c-ace3-77fadacb94be
 ```
- * 退出ssh后，由于在后台运行，该task会一直在运行状态。（也可以终止掉该task，docker容器仍然会继续运行）
+ * 退出ssh后，由于以nohup方式运行，该task会一直在运行状态。
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/task.png)
  * 将agent机器的80端口映射到外网的80端口后，访问`162.105.174.39:80`，可以看到自定义的主页。
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/final.png)
