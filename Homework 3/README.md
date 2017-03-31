@@ -447,7 +447,7 @@ b669753e111a        bridge                  bridge              local
 * 加入自己定义的network：`root@oo-lab:/# docker network connect my-bridge-network http_server`
 
 ### 通过宿主机访问容器内的web服务器
- * 先通过`root@oo-lab:/# docker exec http_server cat /etc/hosts`查看web服务器容器的IP地址为`172.18.0.2`。
+ * 先通过`root@oo-lab:/# docker inspect http_server`查看web服务器容器的IP地址为`172.18.0.2`。
  * 宿主机访问web服务器命令：`root@oo-lab:/# curl 172.18.0.2:80`
  * 返回结果：
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/curl.png)
@@ -511,15 +511,115 @@ dcemal5p2w9y3eo9sh5ctmm8t *  oo-lab    Ready   Active        Leader
  * 这时手动创建一个overlay网络：`root@oo-lab:/# docker network create -d overlay my-multi-host-network`。
  * swarm集群不能创建非集群的普通容器，需要创建`docker service`，使用如下命令创建一个名为my-web的nginx网络服务，并且创建3个tasks，将Leader容器中的80端口映射到宿主机8888端口上。<br />
  `docker service create --replicas 3 --network my-multi-host-network --name my-web -p 8888:80 nginx`
- * 此时另外两个主机上也会出现`my-multi-host-network`的overlay网络。
+ * 此时另外两个主机上也会出现`my-multi-host-network`的overlay网络和`nginx`镜像。
  * 再将Leader宿主机的8888端口映射到外网的8888端口，即可看到nginx主页。
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/nginxSwarm.png)
  * overlay配合swarm是典型的master-slave架构，该网络模式主要用于docker服务和集群的创建。而其他的网络模式都是local模式，只能在本地网络中访问，任何和外部操作都需要经过主机做端口映射。overlay网络通过一个新的网段来管理一个集群，通过注册的方式来发现新结点，避免了普通模式下通讯的繁琐。
 
+---
 
 ## 阅读mesos中负责与docker交互的源码
 
 ### mesos与docker的交互
+ * `/path/to/mesos/src/docker/`是executor调用docker运行的源代码。这个目录下有三个主要文件，分别是`executor.cpp`、`docker.cpp`和`spec.cpp`。`docker.cpp`和`spec.cpp`被`executor`所调用。
+ * 先说`docker.cpp`。`docker.cpp`相当于一个命令组装器，负责将解析出来的配置文件一一对应成docker命令。其中有`version`、`create`（包括容器的创建和镜像的创建）、`run`（最核心）、`stop`、`kill`、`rm`、`inspect`、`ps`和`pull`，以及一些错误处理的函数。
+ * `spec.cpp`负责解析发来的配置文件。将`cantainerInfo`、`commandInfo`等配置信息解析成C++的map类。
+ * `executor.cpp`是核心代码，这里实现了一个简单的执行docker容器的executor。这份代码负责执行一个docker容器，然后重定向日志输出文件到配置好的标准输出和标准错误输出。它仅仅启动一个简单的task，也就是docker容器，然后会在这个任务结束或者死亡的时候退出。
+ * 这里边定义了两个类，一个是`executor`的进程类，包括注册、启动task、结束task等基本的mesos方法。另一个是`docker`的执行类，这个类运行在之前定义的executor进程类上，在其上继承了docker的一些操作。
+ * `executor.cpp`中的入口函数在`main`函数中。
+ 1. 处理传进来的参数和环境变量flag，检查`docker`、`container`、`sandbox_directory`和`mapped_directory`是否存在。
+ 2. 加载`task_environment`核心的配置文件，该文件为JSON格式，交给`spec.cpp`去解析。
+ 3. 配置不推荐使用的`MESOS_EXECUTOR_SHUTDOWN_GRACE_PERIOD`和已经被废弃的`stop_timeout`。
+ 4. 验证docker参数。
+ 5. 在docker执行类中运行docker容器。
+
 ### docker类中的run函数
+ * `docker.hpp`定义了docker类，这个类主要是用来将参数组装成真正的docker命令。
+ * run函数定义在`docker.cpp`中。
+ 1. 添加docker的选项`-H`，这是用来在daemon模式下绑定socker，path和socker在class中已经有定义。
+```C++
+vector<string> argv;
+argv.push_back(path);
+argv.push_back("-H");
+argv.push_back(socket);
+argv.push_back("run");
+```
+ 2. 检查是否有privilege，即在特权模式下运行docker。
+```C++
+if (dockerInfo.privileged()) {
+    argv.push_back("--privileged");
+}
+```
+ 3. 检查是否有resource，分配CPU份额和内存资源。
+```C++
+if (resources.isSome()) {
+    // TODO(yifan): Support other resources (e.g. disk).
+    Option<double> cpus = resources.get().cpus();
+    if (cpus.isSome()) {...}
+    Option<Bytes> mem = resources.get().mem();
+    if (mem.isSome()) {...}
+}
+```
+ 4. 检查添加env环境变量。
+```C++
+if (env.isSome()) {
+    foreachpair (string key, string value, env.get()) {
+        argv.push_back("-e");
+        argv.push_back(key + "=" + value);
+    }
+}
+```
+ 5. 检查commandInfo中的环境变量设置。
+ 6. 手动添加`MESOS_SANDBOX`和`MESOS_CONTAINER_NAME`两个环境变量。
+```C++
+argv.push_back("-e");
+argv.push_back("MESOS_SANDBOX=" + mappedDirectory);
+argv.push_back("-e");
+argv.push_back("MESOS_CONTAINER_NAME=" + name);
+```
+ 7. 检查是否有挂载外部磁盘卷的选项volume。
+ 8. 映射sandbox目录到容器中mapped目录。
+```C++
+argv.push_back("-v");
+argv.push_back(sandboxDirectory + ":" + mappedDirectory);
+```
+ 9. 配置网络`--net`。有host、bridge、none模式和用户自定义网络。
+```C++
+argv.push_back("--net");
+string network;
+switch (dockerInfo.network()) {
+    ...
+}
+argv.push_back(network);
+```
+ 10. 检查添加hostname选项，不能和host模式的网络一起出现。
+ 11. 配置端口映射，host和none模式下不能进行端口映射。
+ 12. 检查添加外部设备。
+ 13. 将commandInfo中的shell命令添加到`--entrypoint`选项中，并执行`/bin/bash`。
+```C++
+if (commandInfo.shell()) {
+    argv.push_back("--entrypoint");
+    argv.push_back("/bin/sh");
+}
+```
+ 14. 添加容器名和指定镜像名。
+```C++
+argv.push_back("--name");
+argv.push_back(name);
+argv.push_back(image);
+```
+ 15. 最后添加运行容器后的命令和参数。
+ 16. 运行容器。
+```C++
+Try<Subprocess> s = subprocess(
+      path,
+      argv,
+      Subprocess::PATH("/dev/null"),
+      _stdout,
+      _stderr,
+      nullptr,
+      environment);
+```
+---
 
 ## 写一个framework，以容器的方式运行task
