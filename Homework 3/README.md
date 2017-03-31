@@ -710,13 +710,13 @@ def statusUpdate(self, driver, update):
  9. 此后由于线程没有结束，进程便会死循环。
  * `mesos agent`开启命令
 ```
-sudo ./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos --ip=172.16.6.24 \
---hostname=162.105.174.39 --containerizers=docker,mesos --image_providers=docker --isolation=docker/runtime`
+sudo ./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
+--ip=172.16.6.24 --hostname=162.105.174.39 --containerizers=docker,mesos \
+--image_providers=docker --isolation=docker/runtime`
 ```
  * 以后台方式运行framework：`pkusei@oo-lab:~/hw3$ python scheduler.py 172.16.6.251 &`
  * 当前docker容器运行情况：
 ```
-root@oo-lab:/home/pkusei# docker ps -a
 root@oo-lab:/home/pkusei# docker ps -a
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
 689c4ea883f5        ubuntu_with_nginx   "nginx -g 'daemon off"   34 seconds ago      Up 33 seconds                           mesos-0fdc533b-0f48-4757-8e85-1554f3eef141-S0.89525051-adee-4811-a76f-a4a1f52fa5b8
