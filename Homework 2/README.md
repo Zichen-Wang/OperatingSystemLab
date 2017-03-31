@@ -164,7 +164,7 @@ x + 3y <= 9 #(CPU constraint)
 我使用Python完成了一项数组求和的工作，使用了pymesos这个包。<br />
 性能上比串行程序慢了很多，因为都是在本地虚拟机上跑的，10个tasks和通信以及文件读写开销是很大的，所以比串行慢可以理解。<br />
 我在pymesos的包中找到了example，并仔细阅读了example，发现example就是直接无限制启动task，然后在标准错误输出中打印字符串。我将其扩展改造，写了以下两个Python文件：
- * [scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/code/scheduloer.py) GetSumScheduler类的定义和整个framework的入口函数
+ * [scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/code/scheduler.py) GetSumScheduler类的定义和整个framework的入口函数
  * [executor.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%202/code/executor.py) GetSumExecutor类的定义
 
 ### Scheduler部分代码执行过程

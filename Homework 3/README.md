@@ -623,7 +623,7 @@ Try<Subprocess> s = subprocess(
 ---
 
 ## 写一个framework，以容器的方式运行task
- * 用python实现，源代码：[scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/code/scheduloer.py)
+ * 用python实现，源代码：[scheduler.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/code/scheduler.py)
  * 底层通信接口引用自`pymesos`库，鸣谢`douban`。
  * 代码执行过程：
  1. 初始化framework信息。
