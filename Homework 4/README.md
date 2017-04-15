@@ -115,7 +115,7 @@ mount -t glusterfs <IP or hostname>:<volume_name> <mount_point>
 ```
 当我们在客户端挂载该卷的时候，客户端glusterfs进程会和服务器端的glusterd进程通信。服务器端的glusterd进程会发送包含有客户端翻译表和其他一些能帮助客户端glusterfs进程直接和每个brick的glusterfsd进程通信的配置文件。
 
-![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%204/picture/glustefs_overall_working.png
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%204/picture/glusterfs_overall_working.png)
 
 当客户端对该卷进行文件操作系统调用时，VFS会向FUSE内核模块发送请求，该内核模块会通过`/dev/fuse`目录将请求发送到客户端的GlusterFS进程上。客户端的GlusterFS进程包含一系列由存储服务器端的glusterd进程定义的翻译器，这些翻译器包括：
 1. FUSE翻译器
@@ -276,5 +276,5 @@ root@oo-lab:/# vi /html/index.html
 root@oo-lab:/# docker run -v /html:/html -p 4040:80 -d --name homework4 ubuntu_with_nginx_hw4 nginx -g 'daemon off;'
 ```
  * 将1002机的4040端口映射到外网4040端口，看到服务器的主页
-![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%204/picture/nginx.png
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%204/picture/nginx.png)
  * 此时可以使用`umount /html`命令解除1002客户端挂载的`/html`。通过修改分布式文件系统`/html`中的`index.html`就可以直接修改docker容器中的主页。
