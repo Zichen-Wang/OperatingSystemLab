@@ -359,8 +359,6 @@ ubuntu_with_nginx_hw4 nginx -g 'daemon off;'
 ```
 root@oo-lab:/# docker create -it --name homework4 ubuntu /bin/bash
 ```
-```
-```
 
  * 接着启动这个容器，然后用`df -hT`命令查看当前的挂载情况
 ```
