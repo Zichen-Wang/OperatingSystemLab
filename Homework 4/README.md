@@ -297,13 +297,15 @@ root@oo-lab:/# for i in `seq -w 1 10`; do cp -rp /home/pkusei/test.txt /storage/
  * 检查客户端挂载点的存入情况
 ```
 root@oo-lab:/storage# ls
-copy-test-01  copy-test-02  copy-test-03  copy-test-04  copy-test-05  copy-test-06  copy-test-07  copy-test-08  copy-test-09  copy-test-10
+copy-test-01  copy-test-02  copy-test-03  copy-test-04  copy-test-05
+copy-test-06  copy-test-07  copy-test-08  copy-test-09  copy-test-10
 ```
 
  * 检查每个服务器端brick中的存入情况
 ```
 root@oo-lab:/data/brick1# ls
-copy-test-01  copy-test-02  copy-test-03  copy-test-04  copy-test-05  copy-test-06  copy-test-07  copy-test-08  copy-test-09  copy-test-10
+copy-test-01  copy-test-02  copy-test-03  copy-test-04  copy-test-05
+copy-test-06  copy-test-07  copy-test-08  copy-test-09  copy-test-10
 ```
 
  * 由于创建卷的方式为复制卷且副本个数为2，故当一个服务器挂掉时，另一个服务器还保存有副本，具有容错机制。
@@ -334,7 +336,8 @@ root@oo-lab:/# vi /html/index.html
  * 这里我是通过宿主机的`/html`挂载点，将其继续挂载到docker容器中。网上的`docker-volume-glusterfs`插件编译不通过，语法错误。
  * 从镜像`ubuntu_with_nginx_hw4`中创建后台容器并运行nginx，将宿主机的`/html`挂载到容器中的`/html`中，将容器的80端口映射到宿主机的4040端口。
 ```
-root@oo-lab:/# docker run -v /html:/html -p 4040:80 -d --name homework4 ubuntu_with_nginx_hw4 nginx -g 'daemon off;'
+root@oo-lab:/# docker run -v /html:/html -p 4040:80 -d --name homework4 \
+ubuntu_with_nginx_hw4 nginx -g 'daemon off;'
 ```
  * 将1002机的4040端口映射到外网4040端口，看到服务器的主页
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%204/picture/nginx.png)
@@ -385,11 +388,16 @@ d762bd2635d798c2430486853c1ac1ee1253575ce01d8d82685b445ace5aa1fb
  * 具体的文件都在`/var/lib/docker/aufs/diff`中，用`cp`命令将其保存到自己创建的目录下
 ```
 root@oo-lab:/var/lib/docker/aufs/diff# mkdir /home/pkusei/my_images
-root@oo-lab:/var/lib/docker/aufs/diff# cp -r d762bd2635d798c2430486853c1ac1ee1253575ce01d8d82685b445ace5aa1fb/ /home/pkusei/my_images/0
-root@oo-lab:/var/lib/docker/aufs/diff# cp -r dbdf18520e2e69a20b0effd07cff0a33ab7f6b72ac968056353c486267fc1ef4/ /home/pkusei/my_images/1
-root@oo-lab:/var/lib/docker/aufs/diff# cp -r 706b5f3a094bda1e854bc2bc20552701cab2eda8e7757195dd8407f60044ec99/ /home/pkusei/my_images/2
-root@oo-lab:/var/lib/docker/aufs/diff# cp -r 9112564abcd82ee013ebc0776cfd8af258cacd55346d35b6fd2133224b0a883b/ /home/pkusei/my_images/3
-root@oo-lab:/var/lib/docker/aufs/diff# cp -r 34f74c50fa62e6aeb210058f900053d22e37de46d334c254f25195e2d8c7feaf/ /home/pkusei/my_images/4
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r d762bd2635d798c2430486853c1ac1ee1253575ce01d8d82685b445ace5aa1fb/ \
+/home/pkusei/my_images/0
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r dbdf18520e2e69a20b0effd07cff0a33ab7f6b72ac968056353c486267fc1ef4/ \
+/home/pkusei/my_images/1
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 706b5f3a094bda1e854bc2bc20552701cab2eda8e7757195dd8407f60044ec99/ \
+/home/pkusei/my_images/2
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 9112564abcd82ee013ebc0776cfd8af258cacd55346d35b6fd2133224b0a883b/ \
+/home/pkusei/my_images/3
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 34f74c50fa62e6aeb210058f900053d22e37de46d334c254f25195e2d8c7feaf/ \
+/home/pkusei/my_images/4
 ```
 
  * 在容器中安装软件包
@@ -402,7 +410,8 @@ root@8c026972c69a:/# apt install python
 
  * 软件包的内容会写到最高层读写层中，即`4d18f3bcf5c`中，将其保存到`/home/pkusei/my_images`中
 ```
-root@oo-lab:/var/lib/docker/aufs/diff# cp -r 4d18f3bcf5c63d5c75cc1efed46a19b9a536a9e523569340dfd7e7c405dfb620 /home/pkusei/my_images/software
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 4d18f3bcf5c63d5c75cc1efed46a19b9a536a9e523569340dfd7e7c405dfb620 \
+/home/pkusei/my_images/software
 ```
 
  * 创建挂载点`/home/pkusei/my_mnt`
@@ -412,7 +421,10 @@ root@oo-lab:# mkdir /home/pkusei/my_mnt
 
  * 使用aufs挂载保存在`/home/pkusei/my_images/`中的所有镜像到`/home/pkusei/my_mnt`下
 ```
-root@oo-lab:/# mount -t aufs -o br=/home/pkusei/my_images/software=ro:/home/pkusei/my_images/4=ro:/home/pkusei/my_images/3=ro:/home/pkusei/my_images/2=ro:/home/pkusei/my_images/1=ro:/home/pkusei/my_images/0=ro none /home/pkusei/my_mnt
+root@oo-lab:/# mount -t aufs -o br=/home/pkusei/my_images/software=ro\
+:/home/pkusei/my_images/4=ro:/home/pkusei/my_images/3=ro\
+:/home/pkusei/my_images/2=ro:/home/pkusei/my_images/1=ro\
+:/home/pkusei/my_images/0=ro none /home/pkusei/my_mnt
 ```
 
  * 进入`/home/pkusei/my_mnt`目录，使用`docker import`命令从本地目录导入镜像
