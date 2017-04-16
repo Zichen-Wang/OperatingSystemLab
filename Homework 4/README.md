@@ -194,6 +194,12 @@ AUFS在合并目录时有一系列的规则：
 #### 特点
 AUFS有所有Union FS的特性，把多个目录合并成同一个目录，并可以为每个需要合并的目录指定相应的权限，实时地添加、删除、修改已经被mount好的目录。而且，他还能在多个可写的branch/dir间进行负载均衡。
 
+1. 节省存储空间：多个container可以共享base image存储。
+2. 快速部署：如果要部署多个container，base image可以避免多次拷贝。
+3. 内存更省：因为多个container共享base image，以及OS的disk缓存机制，多个container中的进程命中缓存内容的几率大大增加。
+4. 升级更方便：相比于copy-on-write类型的FS，base image也是可以挂载为可写的，可以通过更新baseimage而一次性更新其之上的container。
+5. 允许在不更改base-image的同时修改其目录中的文件，所有写操作都发生在最上层的可写层中，这样可以大大增加base image能共享的文件内容。
+
 #### 使用方式
 只需使用一条命令便可以实现挂载
 ```
@@ -333,3 +339,96 @@ root@oo-lab:/# docker run -v /html:/html -p 4040:80 -d --name homework4 ubuntu_w
  * 将1002机的4040端口映射到外网4040端口，看到服务器的主页
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%204/picture/nginx.png)
  * 此时可以使用`umount /html`命令解除1002客户端挂载的`/html`。通过修改分布式文件系统`/html`中的`index.html`就可以直接修改docker容器中的主页。
+
+---
+
+## 仿照Docker镜像工作机制完成一次镜像制作
+
+### Docker镜像工作机制
+ * 典型的Linux启动到运行需要两个FS：bootfs和rootfs
+ * bootfs (boot file system)主要包含bootloader和kernel，bootloader主要是引导加载kernel，当boot成功后kernel被加载到内存中后bootfs就被解除挂载了。
+ * rootfs (root file system)包含的就是典型Linux系统中的/dev、/proc、/bin、/etc等标准目录和文件。
+ * 由此可见对于不同的linux发行版，bootfs基本是一致的，rootfs会有差别，因此不同的发行版可以公用bootfs典型的Linux在启动后，首先将rootfs置为只读，进行一系列检查，然后将其切换为可读写供用户使用。在docker中，起初也是将rootfs以只读方式加载并检查，然而接下来利用联合文件系统 的将一个可读写文件系统挂载在只读的rootfs之上，并且允许再次将下层的文件系统设定为只读并且向上叠加，这样多个只读层和一个可读写层的结构构成一个container的运行目录。
+
+### 制作Docker镜像
+
+ * 创建一个Docker容器，基础镜像为ubuntu的容器
+```
+root@oo-lab:/# docker create -it --name homework4 ubuntu /bin/bash
+```
+```
+```
+
+ * 接着启动这个容器，然后用`df -hT`命令查看当前的挂载情况
+```
+root@oo-lab:/# docker start -i homework4
+
+在另一个终端中
+root@oo-lab:/# df -hT
+```
+ * 有这样一条挂载记录
+```
+none  aufs  19G 7.0G  11G 41% /var/lib/docker/aufs/mnt/4d18f3bcf5c63d5c75cc1efed46a19b9a536a9e523569340dfd7e7c405dfb620
+```
+ * 这个目录就代表Docker根据ubuntu镜像，将其使用aufs联合文件系统挂载到`4d18f3bcf5c`这个挂载点下，容器会使用这个挂载点。
+ * 到`/var/lib/docker/aufs/layers`查看层级信息
+```
+root@oo-lab:/var/lib/docker/aufs/layers# cat 4d18f3bcf5c63d5c75cc1efed46a19b9a536a9e523569340dfd7e7c405dfb620
+4d18f3bcf5c63d5c75cc1efed46a19b9a536a9e523569340dfd7e7c405dfb620-init
+34f74c50fa62e6aeb210058f900053d22e37de46d334c254f25195e2d8c7feaf
+9112564abcd82ee013ebc0776cfd8af258cacd55346d35b6fd2133224b0a883b
+706b5f3a094bda1e854bc2bc20552701cab2eda8e7757195dd8407f60044ec99
+dbdf18520e2e69a20b0effd07cff0a33ab7f6b72ac968056353c486267fc1ef4
+d762bd2635d798c2430486853c1ac1ee1253575ce01d8d82685b445ace5aa1fb
+```
+ * 可以看到`4d18f3bcf5c`和`4d18f3bcf5c-init`属于容器运行时创建生成的，而底下几层则是ubuntu基础镜像中存在的。其中`4d18f3bcf5c`是最上层的可读可写层。
+ * 具体的文件都在`/var/lib/docker/aufs/diff`中，用`cp`命令将其保存到自己创建的目录下
+```
+root@oo-lab:/var/lib/docker/aufs/diff# mkdir /home/pkusei/my_images
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r d762bd2635d798c2430486853c1ac1ee1253575ce01d8d82685b445ace5aa1fb/ /home/pkusei/my_images/0
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r dbdf18520e2e69a20b0effd07cff0a33ab7f6b72ac968056353c486267fc1ef4/ /home/pkusei/my_images/1
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 706b5f3a094bda1e854bc2bc20552701cab2eda8e7757195dd8407f60044ec99/ /home/pkusei/my_images/2
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 9112564abcd82ee013ebc0776cfd8af258cacd55346d35b6fd2133224b0a883b/ /home/pkusei/my_images/3
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 34f74c50fa62e6aeb210058f900053d22e37de46d334c254f25195e2d8c7feaf/ /home/pkusei/my_images/4
+```
+
+ * 在容器中安装软件包
+```
+root@8c026972c69a:/# apt update
+root@8c026972c69a:/# apt install vim
+root@8c026972c69a:/# apt install gcc
+root@8c026972c69a:/# apt install python
+```
+
+ * 软件包的内容会写到最高层读写层中，即`4d18f3bcf5c`中，将其保存到`/home/pkusei/my_images`中
+```
+root@oo-lab:/var/lib/docker/aufs/diff# cp -r 4d18f3bcf5c63d5c75cc1efed46a19b9a536a9e523569340dfd7e7c405dfb620 /home/pkusei/my_images/software
+```
+
+ * 创建挂载点`/home/pkusei/my_mnt`
+```
+root@oo-lab:# mkdir /home/pkusei/my_mnt
+```
+
+ * 使用aufs挂载保存在`/home/pkusei/my_images/`中的所有镜像到`/home/pkusei/my_mnt`下
+```
+root@oo-lab:/# mount -t aufs -o br=/home/pkusei/my_images/software=ro:/home/pkusei/my_images/4=ro:/home/pkusei/my_images/3=ro:/home/pkusei/my_images/2=ro:/home/pkusei/my_images/1=ro:/home/pkusei/my_images/0=ro none /home/pkusei/my_mnt
+```
+
+ * 进入`/home/pkusei/my_mnt`目录，使用`docker import`命令从本地目录导入镜像
+```
+root@oo-lab:/home/pkusei/my_mnt# tar -c . | docker import - hw4_image
+```
+
+ * 从镜像`hw4_image`中创建运行容器
+```
+root@oo-lab:/# docker run -it --name test_hw4_image hw4_image /bin/bash
+```
+ * 可以使用之前装的`vim`、`gcc`、`python`等软件包。
+```
+root@fbcf64881685:/# python
+Python 2.7.12 (default, Nov 19 2016, 06:48:10)
+[GCC 5.4.0 20160609] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>>
+```
