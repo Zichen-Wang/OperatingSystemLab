@@ -512,7 +512,7 @@ dcemal5p2w9y3eo9sh5ctmm8t *  oo-lab    Ready   Active        Leader
  * swarm集群不能创建非集群的普通容器，需要创建`docker service`，使用如下命令创建一个名为my-web的nginx网络服务，并且创建3个tasks，将Leader容器中的80端口映射到宿主机8888端口上。<br />
  `docker service create --replicas 3 --network my-multi-host-network --name my-web -p 8888:80 nginx`
  * 此时另外两个主机上也会出现`my-multi-host-network`的overlay网络和`nginx`镜像。
- * 再将Leader宿主机的8888端口映射到外网的8888端口，即可看到nginx主页。
+ * 再将Leader宿主机的8888端口映射到外网的8666端口，即可看到nginx主页。
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%203/picture/nginxSwarm.png)
  * overlay配合swarm是典型的master-slave架构，该网络模式主要用于docker服务和集群的创建。而其他的网络模式都是local模式，只能在本地网络中访问，任何和外部操作都需要经过主机做端口映射。overlay网络通过一个新的网段来管理一个集群，通过注册的方式来发现新结点，避免了普通模式下通讯的繁琐。
 
