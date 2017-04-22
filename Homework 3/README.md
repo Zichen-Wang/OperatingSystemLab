@@ -712,7 +712,7 @@ def statusUpdate(self, driver, update):
 ```
 ./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
 --ip=172.16.6.24 --hostname=162.105.174.39 --containerizers=docker,mesos \
---image_providers=docker --isolation=docker/runtime`
+--image_providers=docker --isolation=docker/runtime
 ```
  * 以nohup方式运行framework：`pkusei@oo-lab:~/hw3$ python scheduler.py 172.16.6.251 &`
  * 当前docker容器运行情况：
