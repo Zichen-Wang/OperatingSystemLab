@@ -32,6 +32,9 @@ iptables过滤ip数据包。这是netfilter提供的功能，netfilter将一些�
 root@oo-lab:/# iptables -A INPUT -s 10.2.67.113 -j REJECT
 ```
  * ssh连接会立即挂断，所有从本地到1000服务器的web服务也均无法访问。
+```
+ssh: connect to host 162.105.174.39 port 1000: Connection refused
+```
 
  * 从燕云或者其他IP地址登陆后查看iptables，INPUT链中有如下规则：
 ```
@@ -78,10 +81,35 @@ root@oo-lab:/# iptables -P INPUT DROP
  * 此时可以访问1000机的80端口，其他端口均无法访问。
  * 通过燕云查看1000机的iptables，INPUT链中有如下规则：
 ```
-root@oo-lab:/home/pkusei# iptables -L INPUT --line-numbers
+root@oo-lab:/# iptables -L INPUT --line-numbers
 Chain INPUT (policy DROP)
 num  target     prot opt source               destination
 1    ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:http
 ```
+ * 在燕云上恢复原状：
+```
+root@oo-lab:/# iptables -P INPUT ACCEPT
+root@oo-lab:/# iptables -D INPUT 1
+```
 
-### 
+### 拒绝回应来自某一特定IP地址的ping命令
+ * 在服务器1000机上键入以下命令：
+```
+root@oo-lab:/# iptables -A INPUT -p icmp --icmp-type 8 -s 172.16.6.24 -j REJECT
+```
+ * ping命令通过向目标主机发送`Internet Control Message Protocol (ICMP)`的Echo请求包和等待ICMP的Echo响应来操作，所以如上的规则可以禁止1001机向1000机ping。
+ * 效果如下：
+```
+root@oo-lab:/# ping 172.16.6.251
+PING 172.16.6.251 (172.16.6.251) 56(84) bytes of data.
+From 172.16.6.251 icmp_seq=1 Destination Port Unreachable
+From 172.16.6.251 icmp_seq=2 Destination Port Unreachable
+From 172.16.6.251 icmp_seq=3 Destination Port Unreachable
+^C
+--- 172.16.6.251 ping statistics ---
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2000ms
+```
+ * 恢复原状：
+```
+root@oo-lab:/# iptables -D INPUT 1
+```
