@@ -712,7 +712,7 @@ def statusUpdate(self, driver, update):
 ```
 root@oo-lab:/home/pkusei/mesos-1.1.0/build/bin# nohup ./mesos-agent.sh \
 --master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
---ip=172.16.6.24 --hostname=162.105.174.39 --containerizers=docker,mesos \
+--ip=172.16.6.251 --hostname=162.105.174.39 --containerizers=docker,mesos \
 --image_providers=docker --isolation=docker/runtime > agent.log 2>&1 &
 ```
  * 以nohup方式运行framework：
