@@ -149,7 +149,190 @@ VETH设备和TAP设备比较类似，它是一种成对出现的点对点网络�
 
 ## Calico容器网络的收发数据包的过程
 
- * 接下来以配置一个最简单的Calico集群为例来说明数据包的传输过程
+### 配置一个最简单的Calico集群为例来说明数据包的传输过程
 
-### 首先配置etcd
  * etcd是用来监控集群状态的一个后台程序，时刻检测集群是否运行在正确的状态上。
+ * 使用apt分别在三台主机上安装etcd，并使用service命令关掉自动开启etcd后台程序。
+```
+root@oo-lab:/# apt install etcd
+...
+root@oo-lab:/# service etcd stop
+```
+ * 分别在三台主机上添加如下命令来创建etcd集群环境
+```
+etcd --name node0 --initial-advertise-peer-urls http://172.16.6.251:2380 \
+--listen-peer-urls http://172.16.6.251:2380 \
+--listen-client-urls http://172.16.6.251:2379,http://127.0.0.1:2379 \
+--advertise-client-urls http://172.16.6.251:2379 \
+--initial-cluster-token etcd-cluster-hw5 \
+--initial-cluster node0=http://172.16.6.251:2380,node1=http://172.16.6.24:2380,node2=http://172.16.6.8:2380 \
+--initial-cluster-state new
+```
+
+```
+etcd --name node1 --initial-advertise-peer-urls http://172.16.6.24:2380 \
+--listen-peer-urls http://172.16.6.24:2380 \
+--listen-client-urls http://172.16.6.24:2379,http://127.0.0.1:2379 \
+--advertise-client-urls http://172.16.6.24:2379 \
+--initial-cluster-token etcd-cluster-hw5 \
+--initial-cluster node0=http://172.16.6.251:2380,node1=http://172.16.6.24:2380,node2=http://172.16.6.8:2380 \
+--initial-cluster-state new
+```
+
+```
+etcd --name node2 --initial-advertise-peer-urls http://172.16.6.8:2380 \
+--listen-peer-urls http://172.16.6.8:2380 \
+--listen-client-urls http://172.16.6.8:2379,http://127.0.0.1:2379 \
+--advertise-client-urls http://172.16.6.8:2379 \
+--initial-cluster-token etcd-cluster-hw5 \
+--initial-cluster node0=http://172.16.6.251:2380,node1=http://172.16.6.24:2380,node2=http://172.16.6.8:2380 \
+--initial-cluster-state new
+```
+ * 检查配置状态：在任何一台主机上检查均可
+```
+root@oo-lab:/# etcdctl cluster-health
+member a8d6151f6d1ce8cf is healthy: got healthy result from http://172.16.6.24:2379
+member d73533619b65f9ed is healthy: got healthy result from http://172.16.6.8:2379
+member e975c267eac0b1bc is healthy: got healthy result from http://172.16.6.251:2379
+cluster is healthy
+```
+ * 在三台主机上修改docker daemon，使docker支持etcd。注意，如果之前启动过其他集群网络，需要先关闭。例如如果启动过swarm集群，则需要在每个主机上退出该网络`docker swarm leave --force`，然后再配置docker daemon。
+```
+root@oo-lab:/# service docker stop    # 停止后台的docker服务
+root@oo-lab:/# dockerd --cluster-store etcd://172.16.6.251:2379 &
+# 在后台启动docker daemon，不需要再使用service
+```
+ * 在三台主机上安装Calico，按照官网步骤即可
+```
+root@oo-lab:/# wget -O /usr/local/bin/calicoctl https://github.com/projectcalico/calicoctl/releases/download/v1.1.3/calicoctl
+root@oo-lab:/# chmod +x /usr/local/bin/calicoctl
+```
+ * 分别启动Calico容器，注意需要指定ip和name
+```
+root@oo-lab:/# calicoctl node run --ip 172.16.6.251 --name node0
+```
+ * 检查启动情况
+```
+root@oo-lab:/# calicoctl node status
+Calico process is running.
+
+IPv4 BGP status
++--------------+-------------------+-------+----------+-------------+
+| PEER ADDRESS |     PEER TYPE     | STATE |  SINCE   |    INFO     |
++--------------+-------------------+-------+----------+-------------+
+| 172.16.6.24  | node-to-node mesh | up    | 10:12:10 | Established |
+| 172.16.6.8   | node-to-node mesh | up    | 10:11:51 | Established |
++--------------+-------------------+-------+----------+-------------+
+
+IPv6 BGP status
+No IPv6 peers found.
+```
+ * 创建Calico的IP池，只需在某一台主机上。192.0.2.0/24为拥有256个ip地址的子网
+```
+root@oo-lab:/# cat << EOF | calicoctl create -f -
+- apiVersion: v1
+  kind: ipPool
+  metadata:
+    cidr: 192.0.2.0/24
+EOF
+```
+ * 创建驱动为calico的docker网络，只需在某一台主机上
+```
+root@oo-lab:/# docker network create --driver calico --ipam-driver calico-ipam --subnet=192.0.2.0/24 my_net
+```
+ * 在三个主机上分别创建测试容器
+```
+root@oo-lab:/# docker run -it --net my_net --name test_calico_0 --ip 192.0.2.100 ubuntu_with_ip /bin/bash
+```
+```
+root@oo-lab:/# docker run -it --net my_net --name test_calico_1 --ip 192.0.2.101 ubuntu_with_ip /bin/bash
+```
+```
+root@oo-lab:/# docker run -it --net my_net --name test_calico_2 --ip 192.0.2.102 ubuntu_with_ip /bin/bash
+```
+ * 进行ping测试
+```
+root@cb67426d00da:/# ping 192.0.2.102 -c 4
+PING 192.0.2.102 (192.0.2.102): 56 data bytes
+64 bytes from 192.0.2.102: icmp_seq=0 ttl=62 time=0.679 ms
+64 bytes from 192.0.2.102: icmp_seq=1 ttl=62 time=0.484 ms
+64 bytes from 192.0.2.102: icmp_seq=2 ttl=62 time=0.312 ms
+64 bytes from 192.0.2.102: icmp_seq=3 ttl=62 time=0.384 ms
+--- 192.0.2.102 ping statistics ---
+4 packets transmitted, 4 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 0.312/0.465/0.679/0.138 ms
+```
+ * 至此Calico的初步尝试搭建工作已经完成。
+ * 默认情况下，在同一网络中的容器可以互通，在不同网络中的容器则不可以互通。
+
+### 数据包的传输
+ * Calico的原理是通过修改每个主机节点上的iptables和路由表规则，实现容器间数据路由和访问控制，并通过Etcd协调节点配置信息的。因此Calico服务本身和许多分布式服务一样，需要运行在集群的每一个节点上。
+
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%205/picture/calico.png)
+
+ * Felix:Calico Agent，跑在每台需要运行Workload的节点上，主要负责配置路由及ACLS等信息来确保Endpoint的连通状态。
+
+ * etcd:分布式键值存储，主要负责网络元数据一致性，确保Calico网络状态的准确性。
+
+ * BGP Client (BIRD): 主要负责把Felix写入Kernel的路由信息分发到当前Calico网络，确保Workload间的通信的有效性。
+
+ * BGP Route Reflector (BIRD)：大规模部署时使用，摒弃所有节点互联的mesh模式，通过一个或者多个BGP Route Reflector来完成集中式的路由分发。
+
+
+ * 每当创建一个新的docker容器的Calico网络，Calico系统便会自动维护Kernel的路由表，添加数据包的转发规则。
+```
+root@oo-lab:/# ip route
+...
+blackhole 192.0.2.64/26  proto bird
+192.0.2.100 dev calic1364fb7922  scope link
+192.0.2.101 via 172.16.6.24 dev ens32  proto bird
+192.0.2.102 via 172.16.6.8 dev ens32  proto bird
+...
+```
+ * 同时我又创建运行了新的容器ip为192.2.0.200，则路由表也会跟着变化
+```
+root@oo-lab:/# ip route
+...
+blackhole 192.0.2.64/26  proto bird
+192.0.2.100 dev calic1364fb7922  scope link
+192.0.2.101 via 172.16.6.24 dev ens32  proto bird
+192.0.2.102 via 172.16.6.8 dev ens32  proto bird
+blackhole 192.0.2.192/26  proto bird
+192.0.2.200 dev calic46e85858c2  scope link
+...
+```
+ * 整个数据流也非常的清晰和简单
+```
+container 1 -> veth -> (172.16.6.251)host 1 -> one or more hops -> (172.16.6.24)host 2 -> veth -> (calicxxxx)container 2
+```
+ * 这样，跨主机的容器间通信就建立起来了，而且整个数据流中没有NAT、隧道，不涉及封包和拆包。
+
+## 调研另一种容器网络方案，比较其与Calico的优缺点。
+
+### Weave
+
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%205/picture/weave.png)
+
+如上图所示，在每一个部署Docker的主机（可能是物理机也可能是虚拟机）上都部署有一个W（即Weave router，它本身也可以以一个容器的形式部署）。Weave网络是由这些weave routers组成的对等端点（peer）构成，每个对等的一端都有自己的名字，其中包括一个可读性好的名字用于表示状态和日志的输出，一个唯一标识符用于运行中相互区别，即使重启Docker主机名字也保持不变，这些名字默认是mac地址。
+
+Weave创建一个网桥，并且在网桥和每个容器之间创建一个veth对，Weave run的时候就可以给每个veth的容器端分配一个ip和相应的掩码。veth的网桥这端就是Weave router容器，并在Weave launch的时候分配好ip和掩码。
+
+Weave router学习获取MAC地址对应的主机，结合这个信息和网络之间的拓扑关 系，可以帮助router做出判断并且尽量防止将每个包都转发到每个对端。Weave可以在拓扑关系不断发生变化的部分连接的网络进行路由。
+
+### Calico与Weave比较
+#### Calico优势
+ * 基于iptable/linux kernel包转发效率高，损耗低。
+ * 容器间网络三层隔离。
+ * 网络拓扑直观易懂，平行式扩展，可扩展性强。
+
+#### Calico劣势
+ * Calico仅支持TCP, UDP, ICMP andICMPv6协议。
+ * Calico没有加密数据路径。 用不可信网络上的Calico建立覆盖网络是不安全的。
+ * 没有IP重叠支持。
+
+#### Weave优势
+ * 支持主机间通信加密。
+ * 支持跨主机多子网通信。
+
+#### Weave劣势
+ * 网络封装是一种传输开销，对网络性能会有影响，不适用于对网络性能要求高的生产场景。
