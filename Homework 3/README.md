@@ -715,7 +715,10 @@ root@oo-lab:/home/pkusei/mesos-1.1.0/build/bin# nohup ./mesos-agent.sh \
 --ip=172.16.6.24 --hostname=162.105.174.39 --containerizers=docker,mesos \
 --image_providers=docker --isolation=docker/runtime > agent.log 2>&1 &
 ```
- * 以nohup方式运行framework：`pkusei@oo-lab:~/hw3$ nohup python scheduler.py 172.16.6.251 > scheduler.log 2>&1 &`
+ * 以nohup方式运行framework：
+```
+pkusei@oo-lab:~/hw3$ nohup python scheduler.py 172.16.6.251 > scheduler.log 2>&1 &
+```
  * 当前docker容器运行情况：
 ```
 root@oo-lab:/home/pkusei# docker ps -a
