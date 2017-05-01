@@ -610,7 +610,7 @@ argv.push_back(image);
 ```
  15. 最后添加运行容器后的命令和参数。
  16. 运行容器。
-```C++
+```
 Try<Subprocess> s = subprocess(
       path,
       argv,
@@ -710,11 +710,12 @@ def statusUpdate(self, driver, update):
  9. 此后由于线程没有结束，进程便会死循环。
  * `mesos agent`开启命令
 ```
-./mesos-agent.sh --master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
+root@oo-lab:/home/pkusei/mesos-1.1.0/build/bin# nohup ./mesos-agent.sh \
+--master=172.16.6.251:5050 --work_dir=/var/lib/mesos \
 --ip=172.16.6.24 --hostname=162.105.174.39 --containerizers=docker,mesos \
---image_providers=docker --isolation=docker/runtime
+--image_providers=docker --isolation=docker/runtime > agent.log 2>&1 &
 ```
- * 以nohup方式运行framework：`pkusei@oo-lab:~/hw3$ python scheduler.py 172.16.6.251 &`
+ * 以nohup方式运行framework：`pkusei@oo-lab:~/hw3$ nohup python scheduler.py 172.16.6.251 > scheduler.log 2>&1 &`
  * 当前docker容器运行情况：
 ```
 root@oo-lab:/home/pkusei# docker ps -a
