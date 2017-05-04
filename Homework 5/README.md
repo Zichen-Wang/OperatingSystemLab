@@ -537,7 +537,7 @@ args.append('--ip=172.16.6.251')
 args.append('--port=8888')
 subprocess.Popen(args, stdout=http_proxy_log, stderr=http_proxy_log)
 ```
- * 其中agent_map为执行python时按顺序指定的agent的参数，具体如下
+ * 其中`agent_map`为执行python时按顺序指定的agent_id参数，具体如下
 ```python
 import subprocess
 ...

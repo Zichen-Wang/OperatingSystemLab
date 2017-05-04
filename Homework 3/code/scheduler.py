@@ -13,7 +13,7 @@ from os.path import abspath, join, dirname
 from pymesos import MesosSchedulerDriver, Scheduler, encode_data
 from addict import Dict
 
-TASK_CPU = 0.1
+TASK_CPU = 0.5
 TASK_MEM = 128
 TASK_NUM = 1
 
@@ -79,8 +79,6 @@ class DockerScheduler(Scheduler):
 		logging.debug('Status update TID %s %s',
 					  update.task_id.value,
 					  update.state)
-		if update.state == 'TASK_RUNNING':
-			print('Task is running!')
 
 def main(master):
 
