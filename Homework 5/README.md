@@ -570,4 +570,4 @@ root@oo-lab:/home/pkusei/hw5# nohup python scheduler.py 172.16.6.251 3 d639b26b-
 ### 尚未解决的遗留问题
  * Calico容器集群中只有加入192.168.0.0/16的ip段容器可以访问Internet，其他自定义网段不可以，通过tcpdump抓包未能分析出原因。
 
- * 每次只能启动一个framework，再次启动时会卡在`Scheduler running, Ctrl+C to quit.`的地方。
+ * 每次只能成功启动一个scheduler.py，再次启动时会卡在`Scheduler running, Ctrl+C to quit.`的地方。
