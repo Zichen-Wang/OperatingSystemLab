@@ -13,7 +13,7 @@ from os.path import abspath, join, dirname
 from pymesos import MesosSchedulerDriver, Scheduler, encode_data
 from addict import Dict
 
-TASK_CPU = 1
+TASK_CPU = 0.1
 TASK_MEM = 128
 TASK_NUM = 1
 

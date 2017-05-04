@@ -227,6 +227,11 @@ IPv4 BGP status
 IPv6 BGP status
 No IPv6 peers found.
 ```
+ * 此时每台主机上的docker容器中会出现一个管理calico-node的容器
+```
+CONTAINER ID        IMAGE                        COMMAND                  CREATED             STATUS                   PORTS                  NAMES
+ab2b7ffa85ed        quay.io/calico/node:v1.1.3   "start_runit"            2 days ago          Up 2 days                                       calico-node
+```
  * 创建Calico的IP池，只需在某一台主机上。192.0.2.0/24为拥有256个ip地址的子网
 ```
 root@oo-lab:/# cat << EOF | calicoctl create -f -
@@ -336,3 +341,233 @@ Weave router学习获取MAC地址对应的主机，结合这个信息和网络�
 
 #### Weave劣势
  * 网络封装是一种传输开销，对网络性能会有影响，不适用于对网络性能要求高的生产场景。
+
+---
+
+## 编写一个mesos framework，使用Calico容器网络自动搭建一个docker容器集群
+
+### 准备工作
+ * 制作jupyter镜像，Dockerfile如下
+```
+FROM ubuntu:latest
+
+MAINTAINER wzc
+
+RUN apt update
+RUN apt install -y sudo python3-pip ssh
+
+RUN pip3 install --upgrade pip
+RUN pip3 install jupyter
+
+RUN useradd -ms /bin/bash admin
+RUN adduser admin sudo
+RUN echo 'admin:admin' | chpasswd
+
+RUN mkdir /var/run/sshd
+
+RUN mkdir /home/admin/first_folder
+
+RUN echo 'The user name is "admin". The password is "admin" by default.' > /home/admin/README.txt
+RUN echo 'There are 5 containers running as a cluster. This one can be regarded as manager. The user name and password of other containers is also "admin".' >> /home/admin/README.txt
+RUN echo 'The ip address of this container is "192.168.0.100".' >> /home/admin/README.txt
+RUN echo 'The ip addresses of the rest containers are "192.168.0.101", "192.168.0.102", "192.168.0.103" and "192.168.0.104".' >> /home/admin/README.txt
+RUN echo 'Run command "/usr/sbin/sshd" to use ssh.' >> /home/admin/README.txt
+RUN echo 'The Internet access and sudo privilege are available. You can install software packages by "sudo apt install".' >> /home/admin/README.txt
+
+USER admin
+WORKDIR /home/admin
+
+EXPOSE 22
+
+# 执行jupyter
+CMD ["/usr/local/bin/jupyter", "notebook", "--NotebookApp.token=", "--ip=0.0.0.0", "--port=8888"]
+```
+ * 制作带ssh的ubuntu镜像，Dockerfile如下
+```
+FROM ubuntu:latest
+
+MAINTAINER wzc
+
+RUN apt update
+RUN apt install -y sudo ssh
+
+RUN useradd -ms /bin/bash admin
+RUN adduser admin sudo
+RUN echo 'admin:admin' | chpasswd
+
+RUN mkdir /var/run/sshd
+
+RUN mkdir /home/admin/first_folder
+USER admin
+WORKDIR /home/admin
+
+EXPOSE 22
+
+# 以非守护进程的方式开启ssh监听
+CMD ["/usr/sbin/sshd", "-D"]
+```
+ * 将镜像在三个主机上各制作一份。
+ * 创建calico容器网络
+```
+root@oo-lab:/# docker network create --driver calico --ipam-driver calico-ipam --subnet=192.168.0.0/16 my_net
+# calico配置好之后自动有的IP资源池就是192.168.0.0/16，经测试只有该子网内的calico集群可以访问Internet，原因不详。
+```
+ * 安装configurable-http-proxy
+```
+root@oo-lab:/# apt install -y npm nodejs-legacy
+root@oo-lab:/# npm install -g configurable-http-proxy
+```
+
+### framework
+ * 本次framework共启动5个容器，其中一个容器部署Jupyter notebook，提供web端使用Terminal管理容器集群。
+ * 类似于第三次作业的框架，在其基础上添加容器的网络信息，首先Launch带有Jupyter notebook的容器。
+```python
+if self.launched_task == 0:
+    # ip 容器的ip参数
+    ip = Dict()
+    ip.key = 'ip'
+    ip.value = '192.168.0.100'
+
+    # hostname 容器的hostname参数
+    hostname = Dict()
+    hostname.key = 'hostname'
+    hostname.value = 'cluster'
+
+    # NetworkInfo 指定的网络名称
+    NetworkInfo = Dict()
+    NetworkInfo.name = 'my_net'
+
+    # DockerInfo
+    DockerInfo = Dict()
+    DockerInfo.image = 'ubuntu_jupyter'
+    DockerInfo.network = 'USER'
+    DockerInfo.parameters = [ip, hostname]
+
+    # ContainerInfo
+    ContainerInfo = Dict()
+    ContainerInfo.type = 'DOCKER'
+    ContainerInfo.docker = DockerInfo
+    ContainerInfo.network_infos = [NetworkInfo]
+
+    # CommandInfo
+    CommandInfo = Dict()
+    CommandInfo.shell = False
+
+    task = Dict()
+    task_id = 'node0'
+    task.task_id.value = task_id
+    task.agent_id.value = offer.agent_id.value
+    task.name = 'Docker jupyter task'
+    task.container = ContainerInfo
+    task.command = CommandInfo
+
+    task.resources = [
+        dict(name='cpus', type='SCALAR', scalar={'value': TASK_CPU}),
+        dict(name='mem', type='SCALAR', scalar={'value': TASK_MEM}),
+    ]
+```
+ * Launch剩下的4个容器。
+```python
+else:
+    # ip 容器的ip参数
+    ip = Dict()
+    ip.key = 'ip'
+    ip.value = '192.168.0.10' + str(self.launched_task)
+
+    # hostname 容器的hostname参数
+    hostname = Dict()
+    hostname.key = 'hostname'
+    hostname.value = 'cluster'
+
+    # NetworkInfo 指定的网络名称
+    NetworkInfo = Dict()
+    NetworkInfo.name = 'my_net'
+
+    # DockerInfo
+    DockerInfo = Dict()
+    DockerInfo.image = 'ubuntu_jupyter_client'
+    DockerInfo.network = 'USER'
+    DockerInfo.parameters = [ip, hostname]
+
+    # ContainerInfo
+    ContainerInfo = Dict()
+    ContainerInfo.type = 'DOCKER'
+    ContainerInfo.docker = DockerInfo
+    ContainerInfo.network_infos = [NetworkInfo]
+
+    # CommandInfo
+    CommandInfo = Dict()
+    CommandInfo.shell = False
+
+    task = Dict()
+    task_id = 'node' + str(self.launched_task)
+    task.task_id.value = task_id
+    task.agent_id.value = offer.agent_id.value
+    task.name = 'Docker normal task'
+    task.container = ContainerInfo
+    task.command = CommandInfo
+
+    task.resources = [
+        dict(name='cpus', type='SCALAR', scalar={'value': TASK_CPU}),
+        dict(name='mem', type='SCALAR', scalar={'value': TASK_MEM}),
+    ]
+```
+ * 此时可以通过启动scheduler.py然后启动集群，但仍需要手动找到jupyter容器所在的主机然后做configurable-http-proxy和端口转发，很不方便。
+
+ * 为了实现完全自动化，我固定将1000机的8888端口转发到公网ip的8888端口，然后提前在1001机和1002机上将192.168.0.100的8888端口反向代理到相应本机ip的8888端口。接着在1000上启动scheduler.py，并在scheduler.py中添加一些脚本，如果mesos将jupyter容器的task分配到1001机或者1002机上，则在1000机上将1001机或1002机的8888端口再反向到本机的8888端口；如果jupyter容器被分配到1000机上，则直接将192.168.0.100的8888端口反向代理到1000机的8888端口。
+  * 提前在1001和1002上后台启动http代理
+```
+root@oo-lab:/home/pkusei/hw5# nohup configurable-http-proxy --default-target=http://192.168.0.100:8888 --ip=172.16.6.8 --port=8888 > http_proxy.log 2>&1 &
+```
+ * 在scheduler.py中添加开启http-proxy子进程的代码
+```python
+global agent_map
+num = agent_map[task.agent_id.value]
+
+http_proxy_log = open('/home/pkusei/hw5/http_proxy.log', 'w')
+args = ['/usr/local/bin/configurable-http-proxy']
+if num == 0:
+    args.append('--default-target=http://192.168.0.100:8888')
+elif num == 1:
+    args.append('--default-target=http://172.16.6.24:8888')
+else:
+    args.append('--default-target=http://172.16.6.8:8888')
+
+args.append('--ip=172.16.6.251')
+args.append('--port=8888')
+subprocess.Popen(args, stdout=http_proxy_log, stderr=http_proxy_log)
+```
+ * 其中agent_map为执行python时按顺序指定的agent的参数，具体如下
+```python
+import subprocess
+...
+agent_map = Dict()
+...
+...
+if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    if len(sys.argv) < 4:
+        print("Usage: {} <mesos_master> <number of agent> [agent_id ...]".format(sys.argv[0]))
+        sys.exit(1)
+    else:
+    for i in range(int(sys.argv[2])):
+        agent_map[sys.argv[3 + i]] = i
+    main(sys.argv[1])
+```
+ * 启动scheduler.py
+```
+root@oo-lab:/home/pkusei/hw5# nohup python scheduler.py 172.16.6.251 3 d639b26b-2e64-4bf8-9842-a61cbb209ab2-S0 d639b26b-2e64-4bf8-9842-a61cbb209ab2-S1 d639b26b-2e-4bf8-9842-a61cbb209ab2-S2 > scheduler.log 2>&1 &
+```
+ * 通过公网ip+8888即可访问jupyter notebook
+
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%205/picture/result.png)
+
+ * 通过jupyter notebook提供的Terminal来ssh到集群中的其他机器
+
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%205/picture/result_terminal.png)
+
+### 尚未解决的遗留问题
+ * Calico容器集群中只有加入192.168.0.0/16的ip段容器可以访问Internet，其他自定义网段不可以，通过tcpdump抓包未能分析出原因。
+
+ * 每次只能启动一个framework，再次启动时会卡在`Scheduler running, Ctrl+C to quit.`的地方。
