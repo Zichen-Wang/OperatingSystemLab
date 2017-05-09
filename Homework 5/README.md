@@ -354,7 +354,7 @@ FROM ubuntu:latest
 MAINTAINER wzc
 
 RUN apt update
-RUN apt install -y sudo python3-pip ssh
+RUN apt install -y apt-utils sudo python3-pip ssh
 
 RUN pip3 install --upgrade pip
 RUN pip3 install jupyter
@@ -377,7 +377,6 @@ RUN echo 'The Internet access and sudo privilege are available. You can install 
 USER admin
 WORKDIR /home/admin
 
-EXPOSE 22
 
 # 执行jupyter
 CMD ["/usr/local/bin/jupyter", "notebook", "--NotebookApp.token=", "--ip=0.0.0.0", "--port=8888"]
@@ -389,7 +388,7 @@ FROM ubuntu:latest
 MAINTAINER wzc
 
 RUN apt update
-RUN apt install -y sudo ssh
+RUN apt install -y apt-utils sudo ssh
 
 RUN useradd -ms /bin/bash admin
 RUN adduser admin sudo
@@ -400,8 +399,6 @@ RUN mkdir /var/run/sshd
 RUN mkdir /home/admin/first_folder
 USER admin
 WORKDIR /home/admin
-
-EXPOSE 22
 
 # 以非守护进程的方式开启ssh监听
 CMD ["/usr/sbin/sshd", "-D"]
