@@ -114,7 +114,10 @@ From 172.16.6.251 icmp_seq=3 Destination Port Unreachable
 ```
 root@oo-lab:/# iptables -D INPUT 1
 ```
-
+ * 或者过滤OUTPUT链
+```
+root@oo-lab:/# iptables -A OUTPUT -p icmp --icmp-type 0 -d 172.16.6.24 -j REJECT
+```
 ---
 
 ## Linux网络设备工作原理
