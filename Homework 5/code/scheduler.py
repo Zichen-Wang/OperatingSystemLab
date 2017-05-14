@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import subprocess
 import sys
+import os
 import uuid
 import time
 import socket
@@ -19,6 +20,7 @@ TASK_MEM = 128
 TASK_NUM = 5
 
 agent_map = Dict()
+
 
 class DockerJupyterScheduler(Scheduler):
 
@@ -100,7 +102,9 @@ class DockerJupyterScheduler(Scheduler):
 
 				args.append('--ip=172.16.6.251')
 				args.append('--port=8888')
-				subprocess.Popen(args, stdout=http_proxy_log, stderr=http_proxy_log)
+
+				global http_proxy_pro
+				http_proxy_pro = subprocess.Popen(args, stdout=http_proxy_log, stderr=http_proxy_log)
 
 			else:
 				# ip
@@ -182,6 +186,9 @@ def main(master):
 
 	def signal_handler(signal, frame):
 		driver.stop()
+		global http_proxy_pro
+		http_proxy_pro.kill()
+
 
 	def run_driver_thread():
 		driver.run()
@@ -191,6 +198,7 @@ def main(master):
 
 	print('Scheduler running, Ctrl+C to quit.')
 	signal.signal(signal.SIGINT, signal_handler)
+
 	while driver_thread.is_alive():
 		time.sleep(1)
 
