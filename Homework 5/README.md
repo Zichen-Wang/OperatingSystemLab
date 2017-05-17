@@ -517,7 +517,12 @@ else:
  * 为了实现完全自动化，我固定将1000机的8888端口转发到公网ip的8888端口，然后提前在1001机和1002机上将192.168.0.100的8888端口反向代理到相应本机ip的8888端口。接着在1000上启动scheduler.py，并在scheduler.py中添加一些脚本，如果mesos将jupyter容器的task分配到1001机或者1002机上，则在1000机上将1001机或1002机的8888端口再反向到本机的8888端口；如果jupyter容器被分配到1000机上，则直接将192.168.0.100的8888端口反向代理到1000机的8888端口。
   * 提前在1001和1002上后台启动http代理
 ```
-root@oo-lab:/home/pkusei/hw5# nohup configurable-http-proxy --default-target=http://192.168.0.100:8888 --ip=172.16.6.8 --port=8888 > http_proxy.log 2>&1 &
+root@oo-lab:/home/pkusei/hw5# nohup configurable-http-proxy \
+--default-target=http://192.168.0.100:8888 --ip=172.16.6.24 --port=8888 > http_proxy.log 2>&1 &
+```
+```
+root@oo-lab:/home/pkusei/hw5# nohup configurable-http-proxy \
+--default-target=http://192.168.0.100:8888 --ip=172.16.6.8 --port=8888 > http_proxy.log 2>&1 &
 ```
  * 在scheduler.py中添加开启http-proxy子进程的代码
 ```python
@@ -535,7 +540,9 @@ else:
 
 args.append('--ip=172.16.6.251')
 args.append('--port=8888')
-subprocess.Popen(args, stdout=http_proxy_log, stderr=http_proxy_log)
+
+global http_proxy_pro
+http_proxy_pro = subprocess.Popen(args, stdout=http_proxy_log, stderr=http_proxy_log)
 ```
  * 其中`agent_map`为执行python时按顺序指定的agent_id参数，具体如下
 ```python
