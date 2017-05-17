@@ -216,4 +216,384 @@ Lost leadership... committing suicide!
 ```
  * 需要重启挂掉的master进程才可以继续参与zookeeper，通常由守护进程来完成。需要重启原因是它被踢出了zookeeper的quorum，为了确保不在未知的状态下进行通信。
 
- *
+
+## 综合作业
+
+### 容器入口程序
+ * 首先要求将docker容器组成etcd集群，并且在etcd选举出的master结点上部署jupyter nodebook。这里我用python脚本作为docker容器的入口命令。 入口代码[start.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/code/start.py)的整体设计思路如下：
+ 1. 首先需要启动ssh服务，使用分布式文件系统目录共享authorized_keys，在后边会说到。
+```python
+def start_ssh():
+    os.system('ssh-keygen -f /home/admin/.ssh/id_rsa -t rsa -N ""')
+	  os.system('echo "admin" | sudo -S bash -c "cat /home/admin/.ssh/id_rsa.pub >> /ssh_info/authorized_keys"')
+	  os.system('/usr/sbin/service ssh start')
+```
+
+ 2. 启动etcd主进程，这里启动5个容器组成集群，ip地址分别为192.168.0.100到192.168.0.104
+```python
+def start_etcd(ip_addr):
+    args = ['/usr/local/bin/etcd', '--name', 'node' + ip_addr[-1], \
+    '--data-dir', '/var/lib/etcd', \
+    '--initial-advertise-peer-urls', 'http://' + ip_addr + ':2380', \
+    '--listen-peer-urls', 'http://' + ip_addr + ':2380', \
+    '--listen-client-urls', 'http://' + ip_addr + ':2379,http://127.0.0.1:2379', \
+    '--advertise-client-urls', 'http://' + ip_addr + ':2379', \
+    '--initial-cluster-token', 'etcd-cluster-hw6', \
+    '--initial-cluster', 'node0=http://192.168.0.100:2380,node1=http://192.168.0.101:2380,node2=http://192.168.0.102:2380,node3=http://192.168.0.103:2380,node4=http://192.168.0.104:2380', \
+    '--initial-cluster-state', 'new']
+    subprocess.Popen(args)
+```
+
+ 3. 由于需要维护每个hosts表，需要etcd的kv对来记录当前集群的信息，然后更新hosts表。接下来以某个容器为例，来说明etcd启动后的工作流程：这里需要一个主循环，来持续向etcd集群发送消息，检查自己是否为leader。
+ 3.1. 如果是leader并且是第一次成为leader，先启动jupyter notebook，然后清理上次leader死掉后的在kv对中的/hosts目录，创建kv对/hosts/0192.168.0.10x -> 192.168.0.10x（这里使用0开头表示是leader）。在分布式kv对中更新/hosts目录的存活时间为30秒，这是为了如果有follower死掉，可以在30秒重新创建/hosts目录然后清除掉死掉的follower信息。
+ 3.2 如果是follower，则继续尝试创建kv对/hosts/192.168.0.10x -> 192.168.0.10x。
+ 3.3 经过试验，使用etcdctl mk命令不会重复创建kv对，也不会刷新/hosts目录的ttl剩余存活时间。
+```python
+def main():
+
+	f = os.popen("ifconfig cali0 | grep 'inet addr' | cut -d ':' -f 2 | cut -d ' ' -f 1")
+	ip_addr = f.read().strip('\n')
+
+	start_ssh()
+	start_etcd(ip_addr)
+
+	leader_flag = 0
+	watch_flag = 0
+	stats_url = 'http://127.0.0.1:2379/v2/stats/self'
+	stats_request = urllib.request.Request(stats_url)
+	while True:
+		try:
+			stats_reponse = urllib.request.urlopen(stats_request)
+		except urllib.error.URLError as e:
+			print('[WARN] ', e.reason)
+			print('[WARN] Wating etcd...')
+
+		else:
+			if watch_flag == 0:
+				watch_flag = 1
+				watch_dog(ip_addr)
+
+			stats_json = stats_reponse.read().decode('utf-8')
+			data = json.loads(stats_json)
+
+
+			if data['state'] == 'StateLeader':
+				if leader_flag == 0:
+					leader_flag = 1
+
+					args = ['/usr/local/bin/jupyter', 'notebook', '--NotebookApp.token=', '--ip=0.0.0.0', '--port=8888']
+					subprocess.Popen(args)
+
+					os.system('/usr/local/bin/etcdctl rm /hosts')
+					os.system('/usr/local/bin/etcdctl mk /hosts/0' + ip_addr + ' ' + ip_addr)
+					os.system('/usr/local/bin/etcdctl updatedir --ttl 30 /hosts')
+				else:
+					os.system('/usr/local/bin/etcdctl mk /hosts/0' + ip_addr + ' ' + ip_addr)
+
+
+			elif data['state'] == 'StateFollower':
+				leader_flag = 0
+				os.system('/usr/local/bin/etcdctl mk /hosts/' + ip_addr + ' ' + ip_addr)
+
+		time.sleep(1)
+```
+ 4. 同时，在这个主循环中，需要新启动一个守护进程来触发[watch.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/code/watch.py)，来监控/hosts目录的更新变化，检测到有新创建的kv对后，即使更新hosts文件。已经存在的kv对再创建时不会触发守护进程。
+```python
+def watch_dog(ip_addr):
+	args = ['/usr/local/bin/etcdctl', 'exec-watch', '--recursive', '/hosts', '--', '/usr/bin/python3', '/home/admin/code/watch.py', ip_addr]
+	subprocess.Popen(args)
+```
+ 5. [watch.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/code/watch.py)部分细节如下，需要从环境变量中找到触发守护进程的信息。`expire`为/hosts目录存活时间到0并且当前容器时leader，则需要重新创建并且更新时间为30s；`create`为新创建的kv对，则更新hosts表，如果当前容器时follower则自己继续发送创建kv对的信息。
+```python
+def main(ip_addr):
+	action = os.getenv('ETCD_WATCH_ACTION')
+
+	stats_url = 'http://127.0.0.1:2379/v2/stats/self'
+	stats_request = urllib.request.Request(stats_url)
+
+	stats_reponse = urllib.request.urlopen(stats_request)
+	stats_json = stats_reponse.read().decode('utf-8')
+	data = json.loads(stats_json)
+
+	print('[INFO] Processing', action)
+
+	if action == 'expire':
+		if data['state'] == 'StateLeader':
+			os.system('/usr/local/bin/etcdctl mk /hosts/0' + ip_addr + ' ' + ip_addr)
+			os.system('/usr/local/bin/etcdctl updatedir --ttl 30 /hosts')
+
+	elif action == 'create':
+		edit_hosts()
+		if data['state'] == 'StateFollower':
+			os.system('/usr/local/bin/etcdctl mk /hosts/' + ip_addr + ' ' + ip_addr)
+```
+ 6. 更新hosts表，这里通过编辑/etc/hosts文件来更改hosts。由于只有root用户才能直接编辑/etc/hosts，普通用户不可以，但可以通过完全复制或追加的方式更新。这里新创建/tmp/hosts文件，然后将其复制到/etc/hosts上。由于可能同时有多个创建信息到达，守护进程触发多个[watch.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/code/watch.py)进程，需要将/tmp/hosts加锁编辑防止冲突。
+```python
+def edit_hosts():
+	f = os.popen('/usr/local/bin/etcdctl ls --sort --recursive /hosts')
+	hosts_str = f.read()
+
+
+	hosts_arr = hosts_str.strip('\n').split('\n')
+	hosts_fd = open('/tmp/hosts', 'w')
+
+    # acquire the lock
+	fcntl.flock(hosts_fd.fileno(), fcntl.LOCK_EX)
+
+	hosts_fd.write('127.0.0.1 localhost cluster' + '\n')
+	i = 0
+	for host_ip in hosts_arr:
+		host_ip = host_ip[host_ip.rfind('/') + 1:]
+		if host_ip[0] == '0':
+			hosts_fd.write(host_ip[1:] + ' cluster-' + str(i) + '\n')
+		else:
+			hosts_fd.write(host_ip + ' cluster-' + str(i) + '\n')
+		i += 1
+
+	hosts_fd.flush()
+	os.system('/bin/cp /tmp/hosts /etc/hosts')
+
+    # release the lock automatically
+	hosts_fd.close()
+```
+ * 到此容器入口代码就写好了，为了防止占用过多资源，会在主循环的每轮循环中睡眠1秒。
+
+### 分布式存储
+ * 我采用的是glusterfs分布式存储，在三个宿主机上开启glusterfs服务，然后创建共享目录，挂载到容器中的/home/admin/shared_folder中，此时shared_folder就是所有容器的共享目录，但需要sudo或者root权限可以往里写文件。
+
+### ssh相互免密码登陆
+ * ssh免密码登陆的原理：假设现在本机是A，目标机是B，则A需要在本地生成私钥id_rsa和公钥id_rsa.pub，然后将id_rsa.pub追加到B的authorized_keys中。这样A连接B时，B首先会检查authorized_keys中是否存在A机，如果存在则将A的私钥和该authorized_keys的条目进行比对，比对通过则给予免密登陆，不通过则需要密码。
+ * 在本实验中，使用分布式文件系统glusterfs，创建共享目录和authorized_keys文件，在Dockerfile中修改sshd_config使sshd进程查找时找到该共享文件。
+ * 对应入口程序的代码如下
+```python
+def start_ssh():
+    # generate ssh private and public key
+	os.system('ssh-keygen -f /home/admin/.ssh/id_rsa -t rsa -N ""')
+    # add the public key to shared 'authorized_keys' file
+	os.system('echo "admin" | sudo -S bash -c "cat /home/admin/.ssh/id_rsa.pub >> /ssh_info/authorized_keys"')
+    # start ssh service
+	os.system('/usr/sbin/service ssh start')
+```
+
+### Dockerfile
+ * 下面是Dockerfile，由于每个容器都有可能成为master，故都采用相同的镜像。
+```
+FROM ubuntu:latest
+
+MAINTAINER wzc
+
+RUN apt update && apt install -y sudo python3-pip ssh net-tools curl vim
+RUN pip3 install --upgrade pip && pip3 install jupyter
+
+RUN useradd -ms /bin/bash admin && adduser admin sudo && echo 'admin:admin' | chpasswd
+RUN mkdir /home/admin/first_folder
+
+# 下载最新版etcd
+RUN wget -P /root https://github.com/coreos/etcd/releases/download/v3.1.7/etcd-v3.1.7-linux-amd64.tar.gz && tar -zxf /root/etcd-v3.1.7-linux-amd64.tar.gz -C /root
+RUN ln -s /root/etcd-v3.1.7-linux-amd64/etcd /usr/local/bin/etcd && ln -s /root/etcd-v3.1.7-linux-amd64/etcdctl /usr/local/bin/etcdctl
+
+# 修改sshd配置文件
+RUN mkdir /var/run/sshd
+RUN echo 'AuthorizedKeysFile /ssh_info/authorized_keys' >> /etc/ssh/sshd_config
+
+RUN echo 'The password is "admin" for user "admin" by default. There are 5 containers running as a cluster and the ip addresses of the cluster are "192.168.0.100", "192.168.0.101", "192.168.0.102", "192.168.0.103" and "192.168.0.104". The hostname of each node is "cluster-X", where "X" is from 0 to 4. The Internet access is available. You can install any software packages using "sudo apt". Contents in "shared_folder" can be accessed from any host.\n' > /home/admin/README.txt
+
+# 导入入口地址代码，code目录和Dockerfile放在一起
+ADD code/ /home/admin/code/
+
+# 创建共享目录
+RUN mkdir /home/admin/shared_folder
+
+USER admin
+WORKDIR /home/admin
+
+# 入口进程
+CMD ["/usr/bin/python3", "/home/admin/code/start.py"]
+```
+
+### 代理
+ * 由于现在不确定master所在的容器以及宿主机，需要重写代理脚本。每个主机不断发送http请求查找etcd的master。如果master在1000上，则直接将其代理到1000机的8888端口。如果master在1001机或者1002机上，则不仅需要将其代理到相应主机的8888端口，1000机的代理还需要知道当前master在哪，将1001机或1002机的8888端口代理到自己1000机的8888端口。
+ * [proxy_0.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/code/proxy_0.py)是提前运行在1000机上的代理脚本
+```python
+while True:
+    # check if master is running on the 192.168.0.10x in 1000 host
+	for i in range(5):
+		stats_url = 'http://192.168.0.10' + str(i) + ':2379/v2/stats/self'
+		stats_request = urllib.request.Request(stats_url)
+		try:
+			stats_reponse = urllib.request.urlopen(stats_request, timeout = 2)
+		except (urllib.error.URLError, socket.timeout):
+			print('[INFO] Node 192.168.0.10' + str(i), 'is not running on this host')
+		else:
+			stats_json = stats_reponse.read().decode('utf-8')
+			data = json.loads(stats_json)
+			if data['state'] == 'StateLeader':
+				print('[INFO] Have found master: 192.168.0.10' + str(i))
+				if last_master != i:
+
+					if last_master != -1:
+						last_pid.kill()
+
+					args = ['/usr/local/bin/configurable-http-proxy', \
+					'--default-target=http://192.168.0.10' + str(i) + ':8888', \
+					'--ip=' + ip_addr, '--port=8888']
+					last_pid = subprocess.Popen(args)
+					last_master = i
+
+				else:
+					print('[INFO] Master has not changed')
+
+    # check if master is running on 1001 host
+	stats_url = 'http://172.16.6.24:8888'
+	stats_request = urllib.request.Request(stats_url)
+	try:
+		stats_reponse = urllib.request.urlopen(stats_request, timeout = 2)
+	except (urllib.error.URLError, http.client.RemoteDisconnected, socket.timeout):
+		print('[INFO] Master is not running on host 172.16.6.24')
+	else:
+		print('[INFO] Have found master on: 172.16.6.24')
+		if last_master != 5:
+
+			if last_master != -1:
+				last_pid.kill()
+
+			args = ['/usr/local/bin/configurable-http-proxy', \
+			'--default-target=http://172.16.6.24:8888', \
+			'--ip=' + ip_addr, '--port=8888']
+			last_pid = subprocess.Popen(args)
+			last_master = 5
+
+
+    # check if master is running on 1002 host
+	stats_url = 'http://172.16.6.8:8888'
+	stats_request = urllib.request.Request(stats_url)
+	try:
+		stats_reponse = urllib.request.urlopen(stats_request, timeout = 2)
+	except (urllib.error.URLError, http.client.RemoteDisconnected, socket.timeout) as e:
+		print('[INFO] Master is not running on host 172.16.6.8')
+	else:
+		print('[INFO] Have found master on: 172.16.6.8')
+		if last_master != 6:
+
+			if last_master != -1:
+				last_pid.kill()
+
+			args = ['/usr/local/bin/configurable-http-proxy', \
+			'--default-target=http://172.16.6.8:8888', \
+			'--ip=' + ip_addr, '--port=8888']
+			last_pid = subprocess.Popen(args)
+			last_master = 6
+
+
+	sys.stdout.flush()
+	time.sleep(5)
+```
+ * [proxy_1.py](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/code/proxy_1.py)是提前运行在1001机和1002机上的代理脚本，原理类似，只需要检查容器中是否有master即可。
+ * 以nohup的形式在后台运行
+```
+pkusei@oo-lab:~/hw6$ nohup python3 proxy_0.py > proxy.log 2>&1 &
+or
+pkusei@oo-lab:~/hw6$ nohup python3 proxy_1.py > proxy.log 2>&1 &
+```
+### framework
+ * 此时的framework就很好写了，直接改造第三次作业的framework，添加ip，hostname，volume和network的参数即可
+```python
+for offer in offers:
+	cpus = self.getResource(offer.resources, 'cpus')
+	mem = self.getResource(offer.resources, 'mem')
+	if self.launched_task == TASK_NUM:
+		return
+	if cpus < TASK_CPU or mem < TASK_MEM:
+		continue
+	# ip
+	ip = Dict()
+	ip.key = 'ip'
+	ip.value = '192.168.0.10' + str(self.launched_task)
+
+	# hostname
+	hostname = Dict()
+	hostname.key = 'hostname'
+	hostname.value = 'cluster'
+
+	# volume1
+	volume1 = Dict()
+	volume1.key = 'volume'
+	volume1.value = '/home/pkusei/hw6/ssh_docker:/ssh_info'
+
+	# volume2
+	volume2 = Dict()
+	volume2.key = 'volume'
+	volume2.value = '/home/pkusei/hw6/data_docker:/home/admin/shared_folder'
+
+
+	# NetworkInfo
+	NetworkInfo = Dict()
+	NetworkInfo.name = 'my_net'
+
+	# DockerInfo
+	DockerInfo = Dict()
+	DockerInfo.image = 'ubuntu_jupyter_etcd'
+	DockerInfo.network = 'USER'
+	DockerInfo.parameters = [ip, hostname, volume1, volume2]
+
+	# ContainerInfo
+	ContainerInfo = Dict()
+	ContainerInfo.type = 'DOCKER'
+	ContainerInfo.docker = DockerInfo
+	ContainerInfo.network_infos = [NetworkInfo]
+
+	# CommandInfo
+	CommandInfo = Dict()
+	CommandInfo.shell = False
+
+	task = Dict()
+	task_id = 'node' + str(self.launched_task)
+	task.task_id.value = task_id
+	task.agent_id.value = offer.agent_id.value
+	task.name = 'Docker task'
+	task.container = ContainerInfo
+	task.command = CommandInfo
+
+	task.resources = [
+		dict(name='cpus', type='SCALAR', scalar={'value': TASK_CPU}),
+		dict(name='mem', type='SCALAR', scalar={'value': TASK_MEM}),
+	]
+
+	self.launched_task += 1
+	driver.launchTasks(offer.id, [task], filters)
+```
+### 测试
+ * 启动framework
+```
+pkusei@oo-lab:~/hw6$ nohup python scheduler.py 172.16.6.251 > scheduler.log 2>&1 &
+```
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/tasks.png)
+
+ * 查看162.105.174.39:8888
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/jupyter.png)
+
+ * 在jupyter上通过新建Terminal，可以看到master的ip地址
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/master.png)
+
+ * 查看hosts表，可以发现刚才master是cluster-0的hostname
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/hosts.png)
+
+ * ssh免密相互登陆
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/ssh.png)
+
+ * 在root或使用sudo可以往shared_folder里写入文件，在其他容器可以看到
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/shared.png)
+
+ * 停止某个follower容器，稍等30秒左右，查看hosts表，对比可以发现hosts表会自动补全空缺
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/hosts_kill_follower.png)
+
+ * 再次开启刚才的follower容器，可以发现集群hosts恢复原状
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/hosts_recover_follower.png)
+
+ * 停止master容器，稍等30秒左右，查看hosts表
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/hosts_kill_master.png)
+
+ * 再次开启之前的master容器，可以发现之前的容器作为follower再次加入集群
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/hosts_recover_master.png)
+
+ * 唯一的不足就是在停止了某个容器后，mesos就会报告该task变成failed，重新开启后也不会恢复。

@@ -1,0 +1,131 @@
+nohup ./mesos-master.sh --zk=zk://172.16.6.251:2181,172.16.6.24:2181,172.16.6.8:2181/mesos --quorum=2 --ip=172.16.6.251 --port=5050 --cluster=mesos_with_zookeeper --hostname=162.105.174.39 --work_dir=/var/lib/mesos --log_dir=/var/log/mesos > master.log 2>&1 &
+
+nohup ./mesos-master.sh --zk=zk://172.16.6.251:2181,172.16.6.24:2181,172.16.6.8:2181/mesos --quorum=2 --ip=172.16.6.24 --port=6060 --cluster=mesos_with_zookeeper --hostname=162.105.174.39 --work_dir=/var/lib/mesos --log_dir=/var/log/mesos > master.log 2>&1 &
+
+nohup ./mesos-master.sh --zk=zk://172.16.6.251:2181,172.16.6.24:2181,172.16.6.8:2181/mesos --quorum=2 --ip=172.16.6.8 --port=7070 --cluster=mesos_with_zookeeper --hostname=162.105.174.39 --work_dir=/var/lib/mesos --log_dir=/var/log/mesos > master.log 2>&1 &
+
+nohup ./mesos-agent.sh --master=zk://172.16.6.251:2181,172.16.6.24:2181,172.16.6.8:2181/mesos --work_dir=/var/lib/mesos --log_dir=/var/log/mesos --ip=172.16.6.251 --port=5051 --hostname=162.105.174.39 --containerizers=docker,mesos --image_providers=docker --isolation=docker/runtime > agent.log 2>&1 &
+
+nohup ./mesos-agent.sh --master=zk://172.16.6.251:2181,172.16.6.24:2181,172.16.6.8:2181/mesos --work_dir=/var/lib/mesos --log_dir=/var/log/mesos --ip=172.16.6.24 --port=5052 --hostname=162.105.174.39 --containerizers=docker,mesos --image_providers=docker --isolation=docker/runtime > agent.log 2>&1 &
+
+nohup ./mesos-agent.sh --master=zk://172.16.6.251:2181,172.16.6.24:2181,172.16.6.8:2181/mesos --work_dir=/var/lib/mesos --log_dir=/var/log/mesos --ip=172.16.6.8 --port=5053 --hostname=162.105.174.39 --containerizers=docker,mesos --image_providers=docker --isolation=docker/runtime > agent.log 2>&1 &
+
+
+
+docker run -d --net my_net --ip 192.168.0.100 --hostname cluster --name node0 ubuntu_jupyter_etcd \
+/usr/local/bin/etcd --name node0 \
+--data-dir /var/lib/etcd \
+--initial-advertise-peer-urls http://192.168.0.100:2380 \
+--listen-peer-urls http://192.168.0.100:2380 \
+--listen-client-urls http://192.168.0.100:2379,http://127.0.0.1:2379 \
+--advertise-client-urls http://192.168.0.100:2379 \
+--initial-cluster-token etcd-cluster-hw6 \
+--initial-cluster node0=http://192.168.0.100:2380,node1=http://192.168.0.101:2380,node2=http://192.168.0.102:2380 \
+--initial-cluster-state new
+
+docker run -d --net my_net --ip 192.168.0.101 --hostname cluster --name node1 ubuntu_jupyter_etcd \
+/usr/local/bin/etcd --name node1 \
+--data-dir /var/lib/etcd \
+--initial-advertise-peer-urls http://192.168.0.101:2380 \
+--listen-peer-urls http://192.168.0.101:2380 \
+--listen-client-urls http://192.168.0.101:2379,http://127.0.0.1:2379 \
+--advertise-client-urls http://192.168.0.101:2379 \
+--initial-cluster-token etcd-cluster-hw6 \
+--initial-cluster node0=http://192.168.0.100:2380,node1=http://192.168.0.101:2380,node2=http://192.168.0.102:2380 \
+--initial-cluster-state new
+
+
+docker run -d --net my_net --ip 192.168.0.102 --hostname cluster --name node2 ubuntu_jupyter_etcd \
+/usr/local/bin/etcd --name node2 \
+--data-dir /var/lib/etcd \
+--initial-advertise-peer-urls http://192.168.0.102:2380 \
+--listen-peer-urls http://192.168.0.102:2380 \
+--listen-client-urls http://192.168.0.102:2379,http://127.0.0.1:2379 \
+--advertise-client-urls http://192.168.0.102:2379 \
+--initial-cluster-token etcd-cluster-hw6 \
+--initial-cluster node0=http://192.168.0.100:2380,node1=http://192.168.0.101:2380,node2=http://192.168.0.102:2380 \
+--initial-cluster-state new
+
+
+
+cmd
+0 service ssh start && start etcd
+1 subprocess: etcdctl exec-watch --recursive /hosts -- python
+				expire: if leader
+							etcdctl mk /hosts/0ipx ipx
+							etcdctl updatedir --ttl 10 /hosts
+				create: 
+						write /etc/hosts
+						etcdctl mk /hosts/ipx ipx
+
+2 main process:
+leader_flag = 0
+while curl "http://127.0.0.1:2379/v2/stats/self"
+	if leader
+		if leader_flag == 0:
+			0. leader_flag = 1
+			1. start jupyter
+			2. etcdctl rm --recursive /hosts
+			3. etcdctl mk /hosts/0ipx ipx
+			4. etcdctl updatedir --ttl 10 /hosts
+		else:
+			etcdctl mk /hosts/0ipx ipx
+		
+	else if follower
+		leader_flag = 0
+		etcdctl mk /hosts/ipx ipx
+
+docker run -it --net my_net --ip 192.168.0.100 -v /ssh_docker:/ssh_info --hostname cluster --name node0 ubuntu_jupyter_etcd bash
+docker run -it --net my_net --ip 192.168.0.101 -v /ssh_docker:/ssh_info --hostname cluster --name node1 ubuntu_jupyter_etcd bash
+docker run -v /home/pkusei/hw6/ssh_docker:/ssh_info -it ubuntu_jupyter_etcd bash
+
+
+
+docker run -d --net my_net --ip 192.168.0.100 -v /home/pkusei/hw6/ssh_docker:/ssh_info \
+-v /home/pkusei/hw6/data_docker:/home/admin/shared_folder --hostname cluster \
+--name node0 ubuntu_jupyter_etcd
+
+docker run -d --net my_net --ip 192.168.0.101 -v /home/pkusei/hw6/ssh_docker:/ssh_info \
+-v /home/pkusei/hw6/data_docker:/home/admin/shared_folder --hostname cluster \
+--name node1 ubuntu_jupyter_etcd
+
+docker run -d --net my_net --ip 192.168.0.102 -v /home/pkusei/hw6/ssh_docker:/ssh_info \
+-v /home/pkusei/hw6/data_docker:/home/admin/shared_folder --hostname cluster \
+--name node2 ubuntu_jupyter_etcd
+
+docker run -d --net my_net --ip 192.168.0.103 -v /home/pkusei/hw6/ssh_docker:/ssh_info \
+-v /home/pkusei/hw6/data_docker:/home/admin/shared_folder --hostname cluster \
+--name node3 ubuntu_jupyter_etcd
+
+docker run -d --net my_net --ip 192.168.0.104 -v /home/pkusei/hw6/ssh_docker:/ssh_info \
+-v /home/pkusei/hw6/data_docker:/home/admin/shared_folder --hostname cluster \
+--name node4 ubuntu_jupyter_etcd
+
+
+
+ssh:
+modify hosts
+
+
+root@oo-lab:/# mkdir -p /data/brick_ssh
+
+root@oo-lab:/# gluster volume create ssh_info replica 3 server1:/data/brick_ssh server2:/data/brick_ssh server3:/data/brick_ssh force
+
+root@oo-lab:/# gluster volume start ssh_info
+
+root@oo-lab:/# mkdir -p /home/pkusei/hw6/ssh_docker
+root@oo-lab:/# mount -t glusterfs server1:/ssh_info /home/pkusei/hw6/ssh_docker
+
+
+
+
+
+shared_folder:
+
+root@oo-lab:/# mkdir -p /data/brick_hw6
+root@oo-lab:/# gluster volume create hw6_data replica 3 server1:/data/brick_hw6 server2:/data/brick_hw6 server3:/data/brick_hw6 force
+
+root@oo-lab:/# gluster volume start hw6_data
+
+root@oo-lab:/# mkdir -p /home/pkusei/hw6/data_docker
+root@oo-lab:/# mount -t glusterfs server1:/hw6_data /home/pkusei/hw6/data_docker
