@@ -19,7 +19,6 @@ TASK_CPU = 0.2
 TASK_MEM = 128
 TASK_NUM = 5
 
-agent_map = Dict()
 
 
 class DockerJupyterScheduler(Scheduler):
