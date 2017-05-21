@@ -8,12 +8,12 @@
  * 本着先来后到的原则，每个proposal均有不同的编号，且编号大的proposal有更高的优先级。为了简单，假设每个proposal中包含一个value值。
  * 整个Paxos算法分为两个阶段：
   1. prepare阶段：
-  1.1 proposer选择一个提案编号n，然后向acceptors的某个majority集合的成员发送编号为n的prepare请求。
-  1.2 如果一个acceptor收到一个编号为n的prepare请求，且n大于它已经响应的所有prepare请求的编号，那么它就会保证不会再通过(accept)任何编号小于n的提案，同时将它已经通过的`最大`编号的提案(如果存在的话)作为响应。
+ * 1.1 proposer选择一个提案编号n，然后向acceptors的某个majority集合的成员发送编号为n的prepare请求。
+ * 1.2 如果一个acceptor收到一个编号为n的prepare请求，且n大于它已经响应的所有prepare请求的编号，那么它就会保证不会再通过(accept)任何编号小于n的提案，同时将它已经通过的`最大`编号的提案(如果存在的话)作为响应。
 
   2. accpet阶段：
-  2.1 如果proposer收到来自半数以上的acceptor对于它的prepare请求(编号为n)的响应，那么它就会发送一个针对编号为n，value值为v的提案的accept请求给acceptors，在这里v是收到的响应中编号`最大`的提案的值(value)，如果响应中不包含提案，那么它就是任意值。
-  2.2 如果acceptor收到一个针对编号n的提案的accept请求，只要它还未对编号大于n的prepare请求作出响应，它就可以通过这个提案。
+ * 2.1 如果proposer收到来自半数以上的acceptor对于它的prepare请求(编号为n)的响应，那么它就会发送一个针对编号为n，value值为v的提案的accept请求给acceptors，在这里v是收到的响应中编号`最大`的提案的值(value)，如果响应中不包含提案，那么它就是任意值。
+ * 2.2 如果acceptor收到一个针对编号n的提案的accept请求，只要它还未对编号大于n的prepare请求作出响应，它就可以通过这个提案。
  * 需要注意，两个阶段中的同一个proposer发送的两次请求具有相同的编号。
 
 ![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/paxos.png)
@@ -33,6 +33,45 @@
 ---
 
 ## 模拟Raft协议工作的一个场景并叙述处理过程
+ * 首先启动5个节点的集群，初始状态下，集群所有节点初始化为follower状态，并随机产生一个倒计时。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_0.png)
+---
+ * 当某个结点倒计时结束后，他就认为此时master挂了，会变为candidate，并向其他结点发送vote。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_1.png)
+---
+ * 不幸的是，如果有多个结点在相近的时间成为candidate，有可能每个结点都收不到超过半数的投票，此时会继续等待一个随机倒计时。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_2.png)
+---
+ * 倒计时结束后，会变为candidate，开启新一轮投票，直到某个candidate收到超过半数的投票。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_3.png)
+---
+ * 选举出新的leader S1，任期是3。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_4.png)
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_5.png)
+---
+ * 所有客户端的请求都必须经过leader来进行，如果leader不存在，则集群无法进行get和put操作。写入的日志需要经过prepare和commit两个阶段。
+ * 第一阶段，请求在leader写入后，下一次心跳会统计所有能接收到请求的follower，此时该请求没有写入任何节点包括leader的磁盘上。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_6.png)
+---
+ * 第二阶段，在收到超过一半结点的ACK之后，leader将该请求写到自己的磁盘上，然后在下一次心跳发送commit，让follower写入。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_7.png)
+---
+ * 如果挂掉的follower不超过集群结点的一半，则集群可以正常工作，在恢复后会立即得到同步的日志。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_8.png)
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_9.png)
+ * 日志可以落后，但绝不会不一致。
+---
+ * 当leader挂了之后，随着其他follow结点的超时等待，会重新竞选leader，但leader只会在日志最多的follow结点中产生。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_10.png)
+ * 新leader会逐渐让之前落后日志的follow追平日志。
+
+---
+ * 如果leader挂之前有了提交但未经过prepare阶段的日志，则新leader并不会care这些之前的请求，当原leader恢复后，也会清空这些请求，保持和新leader的日志一致。
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_11.png)
+![](https://github.com/wzc1995/OperatingSystemLab/blob/master/Homework%206/picture/raft_12.png)
+ * 新leader结点会覆盖旧leader的uncommitted请求。
+
+ * 以上图片均截图自网站[Raft Consensus Algorithm](https://raft.github.io/)。
 
 ---
 ## 简述Mesos的容错机制并验证
