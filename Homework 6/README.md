@@ -107,7 +107,7 @@ root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "2" > /var/lib/zookeeper/myid
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# mkdir /var/lib/zookeeper
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "3" > /var/lib/zookeeper/myid
 ```
- * 可以分别查看当前zookeeper集群的状态，为follower或者leader
+ * 用`./zkServer start 或 ./zkServer restart`后可以分别查看当前zookeeper集群的状态，为follower或者leader
 ```
 pkusei@oo-lab:~/zookeeper-3.4.10$ bin/zkServer.sh status
 ZooKeeper JMX enabled by default
