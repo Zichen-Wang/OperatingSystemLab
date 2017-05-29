@@ -95,17 +95,17 @@ server.1=172.16.6.251:2888:3888
 server.2=172.16.6.24:2888:3888
 server.3=172.16.6.8:2888:3888
 ```
- * 在默认的/tmp/zookeeper/目录下创建myid文件，按照主机顺序写入1、2或3，在myid文件中配置的ID号必须与在zoo.cfg文件中指定的ID号一致
+ * 在/var/lib/zookeeper/目录下创建myid文件，按照主机顺序写入1、2或3，在myid文件中配置的ID号必须与在zoo.cfg文件中指定的ID号一致
 ```
 #1000
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# mkdir /var/lib/zookeeper
-root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "1" > /tmp/zookeeper/myid
+root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "1" > /var/lib/zookeeper/myid
 #1001
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# mkdir /var/lib/zookeeper
-root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "2" > /tmp/zookeeper/myid
+root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "2" > /var/lib/zookeeper/myid
 #1002
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# mkdir /var/lib/zookeeper
-root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "3" > /tmp/zookeeper/myid
+root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "3" > /var/lib/zookeeper/myid
 ```
  * 可以分别查看当前zookeeper集群的状态，为follower或者leader
 ```
