@@ -107,7 +107,7 @@ root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "2" > /var/lib/zookeeper/myid
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# mkdir /var/lib/zookeeper
 root@oo-lab:/home/pkusei/zookeeper-3.4.10# echo "3" > /var/lib/zookeeper/myid
 ```
- * 用`./zkServer start 或 ./zkServer restart`后可以分别查看当前zookeeper集群的状态，为follower或者leader
+ * 用`./zkServer.sh start 或 ./zkServer.sh restart`后可以分别查看当前zookeeper集群的状态，为follower或者leader
 ```
 pkusei@oo-lab:~/zookeeper-3.4.10$ bin/zkServer.sh status
 ZooKeeper JMX enabled by default
@@ -284,9 +284,9 @@ def start_etcd(ip_addr):
 ```
 
  3. 由于需要维护每个hosts表，需要etcd的kv对来记录当前集群的信息，然后更新hosts表。接下来以某个容器为例，来说明etcd启动后的工作流程：这里需要一个主循环，来持续向etcd集群发送消息，检查自己是否为leader。
- 3.1. 如果是leader并且是第一次成为leader，先启动jupyter notebook，然后清理上次leader死掉后的在kv对中的/hosts目录，创建kv对/hosts/0192.168.0.10x -> 192.168.0.10x（这里使用0开头表示是leader）。在分布式kv对中更新/hosts目录的存活时间为30秒，这是为了如果有follower死掉，可以在30秒重新创建/hosts目录然后清除掉死掉的follower信息。
- 3.2 如果是follower，则继续尝试创建kv对/hosts/192.168.0.10x -> 192.168.0.10x。
- 3.3 经过试验，使用etcdctl mk命令不会重复创建kv对，也不会刷新/hosts目录的ttl剩余存活时间。
+ * 如果是leader并且是第一次成为leader，先启动jupyter notebook，然后清理上次leader死掉后的在kv对中的/hosts目录，创建kv对/hosts/0192.168.0.10x -> 192.168.0.10x（这里使用0开头表示是leader）。在分布式kv对中更新/hosts目录的存活时间为30秒，这是为了如果有follower死掉，可以在30秒重新创建/hosts目录然后清除掉死掉的follower信息。
+ * 如果是follower，则继续尝试创建kv对/hosts/192.168.0.10x -> 192.168.0.10x。
+ * 经过试验，使用etcdctl mk命令不会重复创建kv对，也不会刷新/hosts目录的ttl剩余存活时间。
 ```python
 def main():
 
